@@ -41,7 +41,7 @@ all <- full_join(join2, range17)
 
 all <- select(all, !c(SFlag, WAZI, WFlag, WDIR))
 
-
+saveRDS(all, file = "./Data/fire.Rds")
 
 
 
