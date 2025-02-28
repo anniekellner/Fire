@@ -1,0 +1,112 @@
+---
+title: "Preliminary Analyses"
+author: "Annie Kellner"
+date: "2025-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+## BEGIN FIRE PRELIMINARY ANALYSES
+
+I will be using the KMA FDRS area for the following preliminary analyses. 
+
+### Combine predictor and response data
+
+The first step I took was to identify days on which multiple fires occurred. I plan to reduce the final dataframe to one entry per calendar day, but will retain a column for the number of fires that occurred on each day. 
+
+```{r multiple-fires}
+
+## Presence-Absence Fire Data
+
+kmaFires <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+
+kmaFires$Date <- as.Date(kmaFires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- kmaFires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only date and count
+  select(Date, count) %>%
+  distinct()
+
+#dups %>% filter(count == 3)
+
+knitr::kable(dups, caption = "Days in KMA with Multiple Fires")
+```
+
+The total number of days between 2015 and 2024 on which multiple fires occurred was 29. 
+The maximum number of fires was 3, which occurred once. On all other days, there were two fires. 
+
+n = 29 represents 0.7% of all days
+
+## Create Combined DF for Response Variables
+
+```{r }
+
+# Create df with all dates represented
+
+allDates <- seq(
+  from = first(kmaFires$Date),
+  to = last(kmaFires$Date),
+  by = "day"
+)
+
+allDates <- data.frame(Date = allDates) 
+
+allDates <- allDates %>%
+  rename(Date = allDates)
+
+# Combine with presence data
+
+kmaFires$Presence <- 1
+
+kmaFires <- kmaFires %>%
+  select(Date, Presence)
+
+kmaComplete <- kmaFires %>% # 3659 entries
+  full_join(allDates) %>%
+  arrange(Date) %>% 
+  replace_na(list(Presence = 0)) %>%
+  distinct()
+
+kmaComplete <- kmaComplete %>% # 3629 entries
+  select(Date, Presence) %>%
+  distinct()
+
+kmaAll <- kmaComplete %>%
+  left_join(dups)
+  
+kmaAll <- kmaAll %>%
+    mutate(count = coalesce(count, Presence)) %>% glimpse()
+
+glimpse(kmaAll)
+
+knitr::kable(head(kmaAll))
+
+```
+
+
+
+
+
+
+
+
