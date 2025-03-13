@@ -6,17 +6,15 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
 ```{r}
 
 library(tidyverse)
-library(caret)
-#library(mlbench)
+library(MuMIn)
 
 ```
-
 
 
 
@@ -56,7 +54,7 @@ dups <- dups %>%
 
 dups <- dups %>% # reduce df to only date and count
   select(Date, count) %>%
-  distinct()
+  distinct() 
 
 #dups %>% filter(count == 3)
 
@@ -70,7 +68,7 @@ n = 29 represents 0.7% of all days
 
 ## Create Combined DF for Response Variables
 
-```{r Response-DF}
+```{r Response-DF, warning=FALSE}
 
 # Create df with all dates represented
 
@@ -82,7 +80,7 @@ allDates <- seq(
 
 allDates <- data.frame(Date = allDates) 
 
-allDates <- allDates %>%
+allDates <- allDates %>% ### REVISIT - ERROR
   rename(Date = allDates)
 
 # Combine with presence data
@@ -96,19 +94,19 @@ kmaComplete <- kmaFires %>% # 3659 entries
   full_join(allDates) %>%
   arrange(Date) %>% 
   replace_na(list(Presence = 0)) %>%
-  distinct()
+  distinct() 
 
 kmaComplete <- kmaComplete %>% # 3629 entries
   select(Date, Presence) %>%
   distinct()
 
 kmaAll <- kmaComplete %>%
-  left_join(dups)
+  left_join(dups) 
   
 kmaAll <- kmaAll %>%
-    mutate(count = coalesce(count, Presence)) 
+    mutate(Count = coalesce(count, Presence)) %>%
+  select(-count)
 
-glimpse(kmaAll)
 
 knitr::kable(head(kmaAll))
 
@@ -125,7 +123,7 @@ kmaEnv <- read.csv("./Data/KMA_Wx_Data_2015_2024.csv")
 
 kmaEnv$DATE <- as.Date(kmaEnv$DATE, format = "%m/%d/%Y")
 
-kmaEnv %>%
+kmaEnv %>% # 2867 dates
   distinct(DATE) %>%
   nrow()
 
@@ -137,18 +135,32 @@ kma1300hi <- kmaEnv %>%
 # Merge with Response Data
 
 kmaHi <- kma1300hi %>%
-  left_join(kmaAll)
+  left_join(kmaAll) 
 
 knitr::kable(head(kmaHi)) # 2862 dates (out of 3629)
+
+#write.csv(kmaHi, "./Data/KMA_hiPotentialData1300_20250313.csv")
 
 ```
 
 There are 2867 unique dates included in this database, so we are **missing 762 days.**
 The good news is there are data for 1300 in 2862, so we are only missing five days at 1300. 
 
-**For the five dates missing variables at 1300, should I take data from 1200 or 1400?**
+The following chunk checks to see if there is missing data on fire days.
 
-*NOTE: I will explore NA values and dates at a later time*
+```{r}
+
+fireDays <- kmaHi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays))
+
+
+```
+**No Fire Days are missing data at 1300**
+
+
+
 
 ## Recursive Feature Elimination (Backwards Selection)
 
@@ -156,6 +168,8 @@ The good news is there are data for 1300 in 2862, so we are only missing five da
 ```{r correlation matrix}
 
 corMat <- cor(kmaHi[,2:16])
+corMat
+
 
 ```
 
@@ -178,11 +192,62 @@ kmaHi <- na.omit(kmaHi)
 
 ```
   
+The Quick-and-Dirty  
   
-```{r Dredge}
+  
+```{r}
 
+globalModel <- glm(Presence ~ Temp + RH + MnRH + Rain + RnDr + BI + KBDI + FM1 + F100 + FMW + HrRa, 
+                   data = kmaHi, 
+                   family = binomial)
 
+options(na.action = "na.fail")
 
+QandD <- dredge(globalModel,
+       evaluate = TRUE, 
+       rank = "AICc")
+
+head(QandD)
+tail(QandD)
 
 ```
+
+### Taking a look at the results
+
+Models with AICc values < 2
+
+```{r}
+
+deltaLT2 <- subset(QandD, delta < 2)
+
+```
+```{r}
+```
+
+
+```{r}
+if(require(graphics)) { 
+par(mar = c(3,5,6,4))
+plot(deltaLT2, labAsExpr = TRUE)
+ }
+```
+
+
+"Best Model"
+
+```{r}
+
+summary(get.models(QandD, 1)[[1]])
+
+```
+Limiting the terms
+
+
+```{r}
+
+dredge(globalModel, m.lim = c(0,3), evaluate = TRUE, rank = "AICc")
+
+```
+
+
 
