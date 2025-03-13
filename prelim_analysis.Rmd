@@ -9,6 +9,17 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
+```{r}
+
+library(tidyverse)
+library(caret)
+#library(mlbench)
+
+```
+
+
+
+
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
@@ -59,7 +70,7 @@ n = 29 represents 0.7% of all days
 
 ## Create Combined DF for Response Variables
 
-```{r }
+```{r Response-DF}
 
 # Create df with all dates represented
 
@@ -104,11 +115,74 @@ knitr::kable(head(kmaAll))
 ```
 This is what the Presence/Absence Data looks like. If it needs more information, let me know. 
 
-# Combine with Environmental Data
+## Combine with Environmental Data
+
+```{r Predictor DF}
+
+# Manipulate Predictor DF
+
+kmaEnv <- read.csv("./Data/KMA_Wx_Data_2015_2024.csv")
+
+kmaEnv$DATE <- as.Date(kmaEnv$DATE, format = "%m/%d/%Y")
+
+kmaEnv %>%
+  distinct(DATE) %>%
+  nrow()
+
+kma1300hi <- kmaEnv %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, ERC, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# Merge with Response Data
+
+kmaHi <- kma1300hi %>%
+  left_join(kmaAll)
+
+knitr::kable(head(kmaHi)) # 2862 dates (out of 3629)
+
+```
+
+There are 2867 unique dates included in this database, so we are **missing 762 days.**
+The good news is there are data for 1300 in 2862, so we are only missing five days at 1300. 
+
+**For the five dates missing variables at 1300, should I take data from 1200 or 1400?**
+
+*NOTE: I will explore NA values and dates at a later time*
+
+## Recursive Feature Elimination (Backwards Selection)
+
+# Correlation Matrix
+```{r correlation matrix}
+
+corMat <- cor(kmaHi[,2:16])
+
+```
+
+Highly Correlated Variables:
+  * Wet Bulb Temp & MaxT
+  * FM1 and RH
+  * ERC & BI
+  * FM1 & FM10
+  * FMW & FMH
+  
+I removed the second variable in each list, somewhat arbitrarily (I cross-referenced with your list, but they were all listed as likely important)
+
+I also removed rows with missing data for the sake of providing results in a timely fashion
+  
+```{r Remove-Cor}
+
+kmaHi <- select(kmaHi, -c(MaxT, FM10, ERC, FMH))
+
+kmaHi <- na.omit(kmaHi)
+
+```
+  
+  
+```{r Dredge}
 
 
 
 
-
-
+```
 
