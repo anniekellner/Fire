@@ -95,14 +95,16 @@ kmaAll <- kmaComplete %>%
   left_join(dups)
   
 kmaAll <- kmaAll %>%
-    mutate(count = coalesce(count, Presence)) %>% glimpse()
+    mutate(count = coalesce(count, Presence)) 
 
 glimpse(kmaAll)
 
 knitr::kable(head(kmaAll))
 
 ```
+This is what the Presence/Absence Data looks like. If it needs more information, let me know. 
 
+# Combine with Environmental Data
 
 
 
