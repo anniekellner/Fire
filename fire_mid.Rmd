@@ -1,0 +1,184 @@
+---
+title: "mid_analysis"
+author: "Annie Kellner"
+date: "2025-03-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r load-libraries}
+
+library(tidyverse)
+library(MuMIn)
+library(kableExtra)
+
+```
+
+
+# DESCRIPTIVE STATS: MULTIPLE FIRES IN A DAY
+
+*KMA*
+
+```{r kma}
+
+kmaFires <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+
+kmaFires$Date <- as.Date(kmaFires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- kmaFires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+fires4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+```
+
+*PTA East*
+
+```{r}
+
+# Presence/Absence Fire Data
+
+ptaE_fires <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+
+ptaE_fires$Date <- as.Date(ptaE_fires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- ptaE_fires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+fires4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+```
+
+
+*Kipuka*
+
+```{r}
+
+kipFires <- read.csv("./Data/Kipuka/PTA_Southwest_FDRS_Wildfires.csv")
+
+kipFires$Date <- as.Date(kipFires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- kipFires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+fires4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+```
+
+
+*Range17*
+
+```{r}
+
+r17 <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+
+r17$Date <- as.Date(r17$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- r17 %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+fires4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+```
+
+```{r}
+
+# Concatenated list of multiple fire data
+
+multipleFires <- read_csv("./Plots_and_Tables/Multiple_Fires.csv")
+
+knitr::kable(multipleFires,
+             caption = "Days with Multiple Fires") %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(0:nrow(multipleFires),
+           background = "white",
+           color = "black")
+
+```
+

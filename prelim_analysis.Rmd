@@ -30,6 +30,8 @@ I will be using the KMA FDRS area for the following preliminary analyses.
 
 The first step I took was to identify days on which multiple fires occurred. I plan to reduce the final dataframe to one entry per calendar day, but will retain a column for the number of fires that occurred on each day. 
 
+## KMA
+
 ```{r multiple-fires}
 
 ## Presence-Absence Fire Data
@@ -157,12 +159,11 @@ which(is.na(fireDays))
 
 
 ```
+
+
+
 **No Fire Days are missing data at 1300**
 
-
-
-
-## Recursive Feature Elimination (Backwards Selection)
 
 # Correlation Matrix
 ```{r correlation matrix}
@@ -248,6 +249,134 @@ Limiting the terms
 dredge(globalModel, m.lim = c(0,3), evaluate = TRUE, rank = "AICc")
 
 ```
+
+
+## PTA East
+
+```{r}
+
+# Presence/Absence Fire Data
+
+ptaE_fires <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+
+ptaE_fires$Date <- as.Date(ptaE_fires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- ptaE_fires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+max4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+
+
+
+
+```
+
+
+## Kipuka
+
+```{r}
+
+# Presence/Absence Fire Data
+
+kipFires <- read.csv("./Data/Kipuka/PTA_Southwest_FDRS_Wildfires.csv")
+
+kipfires$Date <- as.Date(kipfires$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- kipFires %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+max4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+
+```
+
+## Range 17
+
+```{r}
+
+# Presence/Absence Fire Data
+
+r17 <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+
+r17$Date <- as.Date(r17$Date, format = "%m/%d/%Y")
+
+# Find duplicates (multiple fires on a single day)
+
+dups <- r17 %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+dups <- dups %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n)
+
+# remove duplicate rows
+
+dups <- dups %>% # reduce df to only Date and count
+  select(Date, count) %>%
+  distinct() 
+
+max(dups$count) # maximum is 4 fires, which occurred once
+
+max4 <- dups %>% filter(count == 4)
+fires3 <- dups %>% filter(count == 3)
+fires2 <- dups %>% filter(count == 2)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
