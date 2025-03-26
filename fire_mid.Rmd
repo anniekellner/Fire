@@ -36,27 +36,27 @@ kmaFires$Date <- as.Date(kmaFires$Date, format = "%m/%d/%Y")
 
 # Find duplicates (multiple fires on a single day)
 
-dups <- kmaFires %>%
+KMAdups <- kmaFires %>%
   group_by(Date) %>%
   filter(n() > 1) %>%
   arrange(Date) 
 
-dups <- dups %>%
+KMAdups <- KMAdups %>%
   add_count(Date) %>%
   arrange(Date) %>%
   rename(count = n)
 
 # remove duplicate rows
 
-dups <- dups %>% # reduce df to only date and count
+KMAdups <- KMAdups %>% # reduce df to only date and count
   select(Date, count) %>%
   distinct() 
 
-max(dups$count) # maximum is 4 fires, which occurred once
+max(KMAdups$count) # maximum is 4 fires, which occurred once
 
-fires4 <- dups %>% filter(count == 4)
-fires3 <- dups %>% filter(count == 3)
-fires2 <- dups %>% filter(count == 2)
+fires4 <- KMAdups %>% filter(count == 4)
+fires3 <- KMAdups %>% filter(count == 3)
+fires2 <- KMAdups %>% filter(count == 2)
 
 ```
 
@@ -72,27 +72,27 @@ ptaE_fires$Date <- as.Date(ptaE_fires$Date, format = "%m/%d/%Y")
 
 # Find duplicates (multiple fires on a single day)
 
-dups <- ptaE_fires %>%
+ptaEdups <- ptaE_fires %>%
   group_by(Date) %>%
   filter(n() > 1) %>%
   arrange(Date) 
 
-dups <- dups %>%
+ptaEdups <- ptaEdups %>%
   add_count(Date) %>%
   arrange(Date) %>%
   rename(count = n)
 
 # remove duplicate rows
 
-dups <- dups %>% # reduce df to only Date and count
+ptaEdups <- ptaEdups %>% # reduce df to only Date and count
   select(Date, count) %>%
   distinct() 
 
-max(dups$count) # maximum is 4 fires, which occurred once
+max(ptaEdups$count) # maximum is 4 fires, which occurred once
 
-fires4 <- dups %>% filter(count == 4)
-fires3 <- dups %>% filter(count == 3)
-fires2 <- dups %>% filter(count == 2)
+fires4 <- ptaEdups %>% filter(count == 4)
+fires3 <- ptaEdups %>% filter(count == 3)
+fires2 <- ptaEdups %>% filter(count == 2)
 
 ```
 
@@ -107,27 +107,27 @@ kipFires$Date <- as.Date(kipFires$Date, format = "%m/%d/%Y")
 
 # Find duplicates (multiple fires on a single day)
 
-dups <- kipFires %>%
+kipDupes <- kipFires %>%
   group_by(Date) %>%
   filter(n() > 1) %>%
   arrange(Date) 
 
-dups <- dups %>%
+kipDupes <- kipDupes %>%
   add_count(Date) %>%
   arrange(Date) %>%
   rename(count = n)
 
 # remove duplicate rows
 
-dups <- dups %>% # reduce df to only Date and count
+kipDupes <- kipDupes %>% # reduce df to only Date and count
   select(Date, count) %>%
   distinct() 
 
-max(dups$count) # maximum is 4 fires, which occurred once
+max(kipDupes$count) # maximum is 4 fires, which occurred once
 
-fires4 <- dups %>% filter(count == 4)
-fires3 <- dups %>% filter(count == 3)
-fires2 <- dups %>% filter(count == 2)
+fires4 <- kipDupes %>% filter(count == 4)
+fires3 <- kipDupes %>% filter(count == 3)
+fires2 <- kipDupes %>% filter(count == 2)
 
 ```
 
@@ -142,29 +142,31 @@ r17$Date <- as.Date(r17$Date, format = "%m/%d/%Y")
 
 # Find duplicates (multiple fires on a single day)
 
-dups <- r17 %>%
+r17dups <- r17 %>%
   group_by(Date) %>%
   filter(n() > 1) %>%
   arrange(Date) 
 
-dups <- dups %>%
+r17dups <- r17dups %>%
   add_count(Date) %>%
   arrange(Date) %>%
   rename(count = n)
 
 # remove duplicate rows
 
-dups <- dups %>% # reduce df to only Date and count
+r17dups <- r17dups %>% # reduce df to only Date and count
   select(Date, count) %>%
   distinct() 
 
-max(dups$count) # maximum is 4 fires, which occurred once
+max(r17dups$count) # maximum is 4 fires, which occurred once
 
-fires4 <- dups %>% filter(count == 4)
-fires3 <- dups %>% filter(count == 3)
-fires2 <- dups %>% filter(count == 2)
+fires4 <- r17dups %>% filter(count == 4)
+fires3 <- r17dups %>% filter(count == 3)
+fires2 <- r17dups %>% filter(count == 2)
 
 ```
+
+# Table with data on multiple fires (will add to this table later)
 
 ```{r}
 
@@ -179,6 +181,181 @@ knitr::kable(multipleFires,
   row_spec(0:nrow(multipleFires),
            background = "white",
            color = "black")
+
+```
+
+## CREATE DATAFRAMES FOR RESPONSE VARIABLES
+
+*KMA*
+
+```{r}
+
+# KMA
+
+KMAallDates <- seq(
+  from = first(kmaFires$Date),
+  to = last(kmaFires$Date),
+  by = "day"
+)
+
+KMAallDates <- data.frame(Date = KMAallDates) 
+
+#KMAallDates <- KMAallDates %>% 
+  #rename(Date = KMAallDates)
+
+# Combine with presence data
+
+kmaFires$Presence <- 1
+
+kmaFires <- kmaFires %>%
+  select(Date, Presence)
+
+kmaComplete <- kmaFires %>% # 3659 entries
+  full_join(KMAallDates) %>%
+  arrange(Date) %>% 
+  replace_na(list(Presence = 0)) %>%
+  distinct() 
+
+kmaComplete <- kmaComplete %>% # 3629 entries
+  select(Date, Presence) %>%
+  distinct()
+
+kmaAll <- kmaComplete %>%
+  left_join(KMAdups) 
+  
+kmaAll <- kmaAll %>%
+    mutate(Count = coalesce(count, Presence)) %>%
+  select(-count)
+
+sum(kmaAll$Presence)
+sum(kmaAll$Count)
+
+
+```
+
+*PTA East*
+
+```{r}
+
+ptaE_allDates <- seq(
+  from = first(ptaE_fires$Date),
+  to = last(ptaE_fires$Date),
+  by = "day"
+)
+
+ptaE_allDates <- data.frame(Date = ptaE_allDates) 
+
+
+# Combine with presence data
+
+ptaE_fires$Presence <- 1
+
+ptaE_fires <- ptaE_fires %>%
+  select(Date, Presence)
+
+ptaE_Complete <- ptaE_fires %>% 
+  full_join(ptaE_allDates) %>%
+  arrange(Date) %>% 
+  replace_na(list(Presence = 0)) %>%
+  distinct() 
+
+ptaE_Complete <- ptaE_Complete %>% 
+  select(Date, Presence) %>%
+  distinct()
+
+ptaE_All <- ptaE_Complete %>%
+  left_join(ptaEdups) 
+  
+ptaE_All <- ptaE_All %>%
+    mutate(Count = coalesce(count, Presence)) %>%
+  select(-count)
+
+sum(ptaE_All$Presence)
+sum(ptaE_All$Count)
+
+```
+
+*Kipuka*
+
+```{r}
+
+kipAllDates <- seq(
+  from = first(kipFires$Date),
+  to = last(kipFires$Date),
+  by = "day"
+)
+
+kipAllDates <- data.frame(Date = kipAllDates) 
+
+
+# Combine with presence data
+
+kipFires$Presence <- 1
+
+kipFires <- kipFires %>%
+  select(Date, Presence)
+
+kipComplete <- kipFires %>% 
+  full_join(kipAllDates) %>%
+  arrange(Date) %>% 
+  replace_na(list(Presence = 0)) %>%
+  distinct() 
+
+kipComplete <- kipComplete %>% 
+  select(Date, Presence) %>%
+  distinct()
+
+kipAll <- kipComplete %>%
+  left_join(kipDupes) 
+  
+kipAll <- kipAll %>%
+    mutate(Count = coalesce(count, Presence)) %>%
+  select(-count)
+
+sum(kipAll$Presence)
+sum(kipAll$Count)
+```
+
+*Range 17*
+
+```{r}
+
+r17AllDates <- seq(
+  from = first(r17$Date),
+  to = last(r17$Date),
+  by = "day"
+)
+
+r17AllDates <- data.frame(Date = r17AllDates) 
+
+
+# Combine with presence data
+
+r17$Presence <- 1
+
+r17Fires <- r17 %>%
+  select(Date, Presence)
+
+r17Complete <- r17Fires %>% 
+  full_join(r17AllDates) %>%
+  arrange(Date) %>% 
+  replace_na(list(Presence = 0)) %>%
+  distinct() 
+
+r17Complete <- r17Complete %>% 
+  select(Date, Presence) %>%
+  distinct()
+
+r17All <- r17Complete %>%
+  left_join(r17dups) 
+  
+r17All <- r17All %>%
+    mutate(Count = coalesce(count, Presence)) %>%
+  select(-count)
+
+sum(r17All$Presence)
+sum(r17All$Count)
+
 
 ```
 
