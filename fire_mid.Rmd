@@ -479,7 +479,7 @@ which(is.na(fireDays)) # No data missing on fire days
 
 # KMA
 
-corMat_kma <- cor(kmaHi[,2:16])
+corMat_kma <- cor(kmaHi[,2:16], use = "na.or.complete")
 corMat_kma
 
 #Highly Correlated Variables:
@@ -487,6 +487,7 @@ corMat_kma
   # RH & FM1
   # FM1 & FM10
   # FMW & FMH
+  # (Rain & RnDr)
 
 # PTA East
 
@@ -527,13 +528,7 @@ corMat_r17
 ```
 
 
-*Interestingly, RH & BI were correlated with a bunch of variables in PTA East, but not KMA*
+*Interestingly, the correlations were not consistent*
 
-
-## CORRELATED VARIABLES
-
-```{r}
-
-```
 
 
