@@ -359,3 +359,181 @@ sum(r17All$Count)
 
 ```
 
+
+## COMBINE FIRE DATA WITH ENVIRONMENTAL VARIABLES
+
+# KMA
+
+```{r Predictor DF}
+
+# Manipulate Predictor DF
+
+kmaEnv <- read.csv("./Data/KMA/KMA_Wx_Data_2015_2024.csv")
+
+kmaEnv$DATE <- as.Date(kmaEnv$DATE, format = "%m/%d/%Y")
+
+kmaEnv %>% # 2867 dates
+  distinct(DATE) %>%
+  nrow()
+
+kma1300hi <- kmaEnv %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# Merge with Response Data
+
+kmaHi <- kma1300hi %>%
+  left_join(kmaAll) 
+
+knitr::kable(head(kmaHi)) # 2862 dates (out of 3629)
+
+#write.csv(kmaHi, "./Data/KMA_hiPotentialData1300_20250313.csv")
+
+## See if there is missing data on fire days
+
+fireDays <- kmaHi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays)) # No data is missing on fire days
+
+```
+
+
+# PTA East
+
+```{r}
+
+ptaEEnv <- read.csv("./Data/PTA_East/PTA_East_Wx_Data_2015_2024.csv")
+
+ptaEEnv$DATE <- as.Date(ptaEEnv$DATE, format = "%m/%d/%Y")
+
+ptaEEnv %>% 
+  distinct(DATE) %>%
+  nrow()
+
+ptaE1300hi <- ptaEEnv %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# NOTE: Removed correlated vars and only used "high potential" vars for now
+
+
+# Merge with Response Data
+
+ptaEHi <- ptaE1300hi %>% # 3634 entries
+  left_join(ptaE_All) 
+
+## See if there is missing data on fire days
+
+fireDays <- ptaEHi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays)) # No data missing on fire days
+
+
+```
+
+
+# Range 17
+
+
+```{r}
+
+r17env <- read.csv("./Data/Range17/PTA_Range_17_WxData_2014_2024.csv")
+
+r17env$DATE <- as.Date(r17env$DATE, format = "%m/%d/%Y")
+
+r17env %>% 
+  distinct(DATE) %>%
+  nrow()
+
+r17_1300hi <- r17env %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# NOTE: Removed correlated vars and only used "high potential" vars for now
+
+
+# Merge with Response Data
+
+r17Hi <- r17_1300hi %>% # 3634 entries
+  left_join(r17All) 
+
+## See if there is missing data on fire days
+
+fireDays <- r17Hi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays)) # No data missing on fire days
+
+```
+
+
+## CORRELATED VARIABLES
+
+
+```{r}
+
+# KMA
+
+corMat_kma <- cor(kmaHi[,2:16])
+corMat_kma
+
+#Highly Correlated Variables:
+  # Wet Bulb Temp & MaxT
+  # RH & FM1
+  # FM1 & FM10
+  # FMW & FMH
+
+# PTA East
+
+corMat_ptaE <- cor(ptaEHi[,2:16])
+corMat_ptaE
+
+# Temp & MaxT
+# RH & MnRH
+# RH & BI
+# RH & FM1
+# RH & FM10
+# MnRH & FM10
+# Rain & RnDr
+# BI & RH
+# BI & FMH
+# BI & FMW
+# FM1 & FM10
+# FM10 & F100
+# FMH & FMW
+
+# Range17
+
+corMat_r17 <- cor(r17Hi[,2:16], use = "na.or.complete")
+corMat_r17
+
+# Temp & MaxT
+# MnRH & FM10
+# Rain & RnDr
+# BI & FMH
+# BI & FMW
+# (FM1 & RH) - parentheses means close to 0.7
+# FM1 & FM10
+# (FM 10 & FM100)
+# FMH & FMW
+
+
+
+```
+
+
+*Interestingly, RH & BI were correlated with a bunch of variables in PTA East, but not KMA*
+
+
+## CORRELATED VARIABLES
+
+```{r}
+
+```
+
+
