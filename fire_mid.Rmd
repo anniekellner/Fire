@@ -489,6 +489,9 @@ corMat_kma
   # FMW & FMH
   # (Rain & RnDr)
 
+corMat_kma <- as.data.frame(corMat_kma)
+write_csv(corMat_kma, file = "./Results/Correlated_Vars_KMA.csv")
+
 # PTA East
 
 corMat_ptaE <- cor(ptaEHi[,2:16])
@@ -508,6 +511,10 @@ corMat_ptaE
 # FM10 & F100
 # FMH & FMW
 
+corMat_ptaE <- as.data.frame(corMat_ptaE)
+write_csv(corMat_ptaE, file = "./Results/Correlated_Vars_PTA_East.csv")
+
+
 # Range17
 
 corMat_r17 <- cor(r17Hi[,2:16], use = "na.or.complete")
@@ -523,7 +530,8 @@ corMat_r17
 # (FM 10 & FM100)
 # FMH & FMW
 
-
+corMat_r17 <- as.data.frame(corMat_r17)
+write_csv(corMat_r17, file = "./Results/Correlated_Vars_Range17.csv")
 
 ```
 
@@ -531,4 +539,129 @@ corMat_r17
 *Interestingly, the correlations were not consistent*
 
 
+## UNIVARIATE MODELS
+
+
+# Function
+
+Note: R^2 is not a statistic that makes sense in the context of logistic regression. Here is why:
+           - R2 is designed for linear regression, where the response variable is continuous and errors are normally distributed
+           - logistic regression uses maximum likelihood rather than least-squares, so the concept of 'explaining variance' does not translate
+      
+```{r univariate-model-function}
+
+# Function to run univariate models and extract key statistics
+
+run_univariate_models <- function(data, response_var, predictors) {
+  results <- lapply(predictors, function(pred) {
+    # Create formula
+    form <- as.formula(paste(response_var, "~", pred))
+    
+    # Run model
+    model <- glm(form, data = data, family = binomial(link = "logit"))
+    
+    # Extract statistics
+    coef_summary <- summary(model)$coefficients[2, ]
+    aic <- AIC(model)
+    
+    # Return results as a named vector
+    c(Variable = pred,
+      Estimate = coef_summary["Estimate"],
+      SE = coef_summary["Std. Error"],
+      Z = coef_summary["z value"],
+      P = coef_summary["Pr(>|z|)"],
+      AIC = aic)
+  })
+
+  # Convert results to data frame
+  results_df <- do.call(rbind, results)
+  results_df <- as.data.frame(results_df)
+  
+  # Sort by AIC
+  results_df <- results_df[order(results_df$AIC), ]
+  return(results_df)
+}
+
+```
+
+
+
+# KMA
+
+```{r}
+
+predictor_vars <- c("Temp", "MaxT", "RH", "MnRH", "Rain", "RnDr", 
+                   "BI", "KBDI", "FM1", "FM10", "F100", "FMH", "FMW", "HrRa")
+
+# Run models for KMA
+
+kma_results <- run_univariate_models(kmaHi, "Presence", predictor_vars)
+
+
+# Result table
+
+knitr::kable(kma_results,
+             caption = "Univariate Model Results - KMA",
+             digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+
+```
+
+# PTA East
+
+```{r}
+
+ptaE_results <- run_univariate_models(ptaEHi, "Presence", predictor_vars)
+
+knitr::kable(ptaE_results,
+             caption = "Univariate Model Results - PTA East",
+             digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+
+
+
+# Range 17
+
+```{r}
+
+r17_results <- run_univariate_models(r17Hi, "Presence", predictor_vars)
+
+knitr::kable(r17_results,
+             caption = "Univariate Model Results - PTA East",
+             digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+
+
+
+```
+
+# Comparison of locations
+
+```{r}
+
+# Combine results with location identifier
+kma_results$Location <- "KMA"
+ptaE_results$Location <- "PTA East"
+r17_results$Location <- "Range 17"
+
+all_results <- rbind(kma_results, ptaE_results, r17_results)
+
+# Display combined results
+knitr::kable(all_results,
+             caption = "Univariate Model Results - All Locations",
+             digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+    pack_rows("KMA", 1, nrow(kma_results)) %>%
+    pack_rows("PTA East", nrow(kma_results) + 1, nrow(kma_results) + nrow(ptaE_results)) %>%
+    pack_rows("Range 17", nrow(kma_results) + nrow(ptaE_results) + 1, nrow(all_results))
+
+
+
+write_csv(all_results, file = "./Results/HiPotentialVars_univariate_comparison.csv")
+
+```
 

@@ -63,10 +63,6 @@ dups <- dups %>% # reduce df to only date and count
 knitr::kable(dups, caption = "Days in KMA with Multiple Fires")
 ```
 
-The total number of days between 2015 and 2024 on which multiple fires occurred was 29. 
-The maximum number of fires was 3, which occurred once. On all other days, there were two fires. 
-
-n = 29 represents 0.7% of all days
 
 ## Create Combined DF for Response Variables
 
@@ -117,6 +113,8 @@ This is what the Presence/Absence Data looks like. If it needs more information,
 
 ## Combine with Environmental Data
 
+*kma*
+
 ```{r Predictor DF}
 
 # Manipulate Predictor DF
@@ -131,7 +129,7 @@ kmaEnv %>% # 2867 dates
 
 kma1300hi <- kmaEnv %>%
   filter(Time == 1300) %>%
-  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, ERC, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
   rename(Date = DATE)
 
 # Merge with Response Data
@@ -143,26 +141,90 @@ knitr::kable(head(kmaHi)) # 2862 dates (out of 3629)
 
 #write.csv(kmaHi, "./Data/KMA_hiPotentialData1300_20250313.csv")
 
-```
-
-There are 2867 unique dates included in this database, so we are **missing 762 days.**
-The good news is there are data for 1300 in 2862, so we are only missing five days at 1300. 
-
-The following chunk checks to see if there is missing data on fire days.
-
-```{r}
+## See if there is missing data on fire days
 
 fireDays <- kmaHi %>%
   filter(Presence == 1)
 
-which(is.na(fireDays))
+which(is.na(fireDays)) # No data is missing on fire days
+
+```
+
+There are 2867 unique dates included in this database, so we are **missing 762 days.**
+No Fire Days are missing data at 1300 for KMA
+
+
+*PTA_E*
+
+```{r}
+
+ptaEEnv <- read.csv("./Data/PTA_East/PTA_East_Wx_Data_2015_2024.csv")
+
+ptaEEnv$DATE <- as.Date(ptaEEnv$DATE, format = "%m/%d/%Y")
+
+ptaEEnv %>% 
+  distinct(DATE) %>%
+  nrow()
+
+ptaE1300hi <- ptaEEnv %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# NOTE: Removed correlated vars and only used "high potential" vars for now
+
+
+# Merge with Response Data
+
+ptaEHi <- ptaE1300hi %>% # 3634 entries
+  left_join(ptaE_All) 
+
+## See if there is missing data on fire days
+
+fireDays <- ptaEHi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays)) # No data missing on fire days
 
 
 ```
 
 
+*Range 17*
 
-**No Fire Days are missing data at 1300**
+
+```{r}
+
+r17env <- read.csv("./Data/Range17/PTA_Range_17_WxData_2014_2024.csv")
+
+r17env$DATE <- as.Date(r17env$DATE, format = "%m/%d/%Y")
+
+r17env %>% 
+  distinct(DATE) %>%
+  nrow()
+
+r17_1300hi <- r17env %>%
+  filter(Time == 1300) %>%
+  select(DATE, Temp, MaxT, RH, MnRH, Rain, RnDr, BI, KBDI, FM1, FM10, F100, FMH, FMW, HrRa) %>% # "High Potential" vars only
+  rename(Date = DATE)
+
+# NOTE: Removed correlated vars and only used "high potential" vars for now
+
+
+# Merge with Response Data
+
+r17Hi <- r17_1300hi %>% # 3634 entries
+  left_join(r17All) 
+
+## See if there is missing data on fire days
+
+fireDays <- r17Hi %>%
+  filter(Presence == 1)
+
+which(is.na(fireDays)) # No data missing on fire days
+```
+
+
 
 
 # Correlation Matrix
@@ -357,7 +419,7 @@ dups <- dups %>% # reduce df to only Date and count
 
 max(dups$count) # maximum is 4 fires, which occurred once
 
-max4 <- dups %>% filter(count == 4)
+fires4 <- dups %>% filter(count == 4)
 fires3 <- dups %>% filter(count == 3)
 fires2 <- dups %>% filter(count == 2)
 
