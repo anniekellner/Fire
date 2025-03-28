@@ -30,7 +30,7 @@ library(kableExtra)
 
 ```{r kma}
 
-kmaFires <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+kmaFires <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
 
 kmaFires$Date <- as.Date(kmaFires$Date, format = "%m/%d/%Y")
 
@@ -193,8 +193,8 @@ knitr::kable(multipleFires,
 # KMA
 
 KMAallDates <- seq(
-  from = first(kmaFires$Date),
-  to = last(kmaFires$Date),
+  from = ymd("2015-01-01"),
+  to = ymd("2024-12-31"),
   by = "day"
 )
 
@@ -238,8 +238,8 @@ sum(kmaAll$Count)
 ```{r}
 
 ptaE_allDates <- seq(
-  from = first(ptaE_fires$Date),
-  to = last(ptaE_fires$Date),
+  from = ymd("2015-01-01"),
+  to = ymd("2024-12-31"),
   by = "day"
 )
 
@@ -321,8 +321,8 @@ sum(kipAll$Count)
 ```{r}
 
 r17AllDates <- seq(
-  from = first(r17$Date),
-  to = last(r17$Date),
+  from = ymd("2014-01-01"),
+  to = ymd("2024-12-31"),
   by = "day"
 )
 
@@ -479,7 +479,7 @@ which(is.na(fireDays)) # No data missing on fire days
 
 # KMA
 
-corMat_kma <- cor(kmaHi[,2:16], use = "na.or.complete")
+corMat_kma <- cor(kma[,2:15], use = "na.or.complete")
 corMat_kma
 
 #Highly Correlated Variables:
@@ -494,7 +494,7 @@ write_csv(corMat_kma, file = "./Results/Correlated_Vars_KMA.csv")
 
 # PTA East
 
-corMat_ptaE <- cor(ptaEHi[,2:16])
+corMat_ptaE <- cor(ptaE[,2:15])
 corMat_ptaE
 
 # Temp & MaxT
@@ -595,7 +595,7 @@ predictor_vars <- c("Temp", "MaxT", "RH", "MnRH", "Rain", "RnDr",
 
 # Run models for KMA
 
-kma_results <- run_univariate_models(kmaHi, "Presence", predictor_vars)
+kma_results <- run_univariate_models(kma, "Presence", predictor_vars)
 
 
 # Result table
@@ -606,19 +606,27 @@ knitr::kable(kma_results,
     kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
 
+kma_results <- as.data.frame(kma_results)
+
+#write_csv(kma_results, file = "./Results/Univariate_Results/KMA_univariate_results.csv")
+
 ```
 
 # PTA East
 
 ```{r}
 
-ptaE_results <- run_univariate_models(ptaEHi, "Presence", predictor_vars)
+ptaE_results <- run_univariate_models(ptaE, "Presence", predictor_vars)
 
 knitr::kable(ptaE_results,
              caption = "Univariate Model Results - PTA East",
              digits = 4) %>%
     kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
+
+ptaE_univ_results <- as.data.frame(ptaE_results)
+
+write_csv(ptaE_univ_results, file = "./Results/Univariate_Results/ptaE_univ.csv")
 
 ```
 
@@ -628,7 +636,7 @@ knitr::kable(ptaE_results,
 
 ```{r}
 
-r17_results <- run_univariate_models(r17Hi, "Presence", predictor_vars)
+r17_results <- run_univariate_models(r17, "Presence", predictor_vars)
 
 knitr::kable(r17_results,
              caption = "Univariate Model Results - PTA East",
@@ -637,6 +645,9 @@ knitr::kable(r17_results,
                 full_width = FALSE)
 
 
+r17_univ_results <- as.data.frame(r17_results)
+
+write.csv(r17_univ_results, file = "./Results/Univariate_Results/r17_univ.csv")
 
 ```
 
@@ -666,11 +677,4 @@ knitr::kable(all_results,
 write_csv(all_results, file = "./Results/HiPotentialVars_univariate_comparison.csv")
 
 ```
-
-
-
-
-
-
-
 
