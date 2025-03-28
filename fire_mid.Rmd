@@ -620,6 +620,8 @@ knitr::kable(ptaE_results,
     kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE)
 
+```
+
 
 
 # Range 17
@@ -664,4 +666,11 @@ knitr::kable(all_results,
 write_csv(all_results, file = "./Results/HiPotentialVars_univariate_comparison.csv")
 
 ```
+
+
+
+
+
+
+
 
