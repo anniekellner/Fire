@@ -1,0 +1,121 @@
+---
+title: "Hawaii Fire Revised Analysis"
+author: "Annie Kellner"
+date: "2025-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r load-libraries}
+
+library(tidyverse)
+library(kableExtra)
+
+```
+
+```{r load-data}
+
+pta <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+r17 <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+kma <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+
+bigFireDays <- read_csv("./Data/Multiple_Fires.csv")
+
+```
+
+## Fires >= 5 Acres & >= 2 acres
+
+```{r large-or-multiple-fires}
+
+bigFireDays <- data.frame(
+    matrix(NA, 
+           nrow = 7,  # Number of metrics you want to track
+           ncol = 3,  # Number of locations
+           dimnames = list(
+               c("Days_w_Multiple_Fires",
+                 "MaxFires_OneDay",
+                 "Days_2Fires",
+                 "Days_3Fires",
+                 "Days_4Fires",
+                 "Acres5plus",
+                 "Acres2plus"),  # Row names
+               c("KMA", "PTA", "Range17")  # Column names
+           )
+    )
+)
+
+
+
+# KMA
+
+kma5 <- kma %>%
+  filter(acres >= 5) %>%
+  select(Date, acres) 
+
+bigFireDays["Acres5plus", "KMA"] <- tally(kma5)$n
+
+kma2 <- kma %>%
+  filter(acres >= 2) %>%
+  select(Date, acres) 
+
+bigFireDays["Acres2plus", "KMA"] <- tally(kma2)$n
+
+bigFireDays["Days_w_Multiple_Fires", "KMA"] <- 29
+bigFireDays["MaxFires_OneDay", "KMA"] <- 3
+bigFireDays["Days_2Fires", "KMA"] <- 28
+bigFireDays["Days_3Fires", "KMA"] <- 1
+bigFireDays["Days_4Fires", "KMA"] <- 0
+
+
+# PTA East
+
+pta5 <- pta %>%
+  filter(acres >= 5) %>%
+  select(Date, acres) 
+
+bigFireDays["Acres5plus", "PTA"] <- tally(pta5)$n
+
+pta2 <- pta %>%
+  filter(acres >= 2) %>%
+  select(Date, acres) 
+
+bigFireDays["Acres2plus", "PTA"]<- tally(pta2)$n
+
+
+bigFireDays["Days_w_Multiple_Fires", "PTA"] <- 26
+bigFireDays["MaxFires_OneDay", "PTA"] <- 4
+bigFireDays["Days_2Fires", "PTA"] <- 18
+bigFireDays["Days_3Fires", "PTA"] <- 7
+bigFireDays["Days_4Fires", "PTA"] <- 1
+
+# R17
+
+# Range 17 looks like it comes from a different data source - could not calculate acreage
+
+bigFireDays["Days_w_Multiple_Fires", "Range17"] <- 20
+bigFireDays["MaxFires_OneDay", "Range17"] <- 4
+bigFireDays["Days_2Fires", "Range17"] <- 15
+bigFireDays["Days_3Fires", "Range17"] <- 4
+bigFireDays["Days_4Fires", "Range17"] <- 1
+
+
+
+
+
+knitr::kable(bigFireDays,
+             caption = "Summary of Large and/or Multiple Fires") %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(0:nrow(bigFires),
+           background = "white",
+           color = "black")
+
+```
+
