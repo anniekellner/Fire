@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
 
 library(tidyverse)
 library(kableExtra)
+library(MuMIn)
 
 ```
 
@@ -118,4 +119,77 @@ knitr::kable(bigFireDays,
            color = "black")
 
 ```
+
+## ADDING EXPLANATORY VARIABLES FROM PTA/R17 TO KMA MODELS
+
+I added KBDI, Temp, and BI to the KMA models because those were the most important variables in PTA East and Range 17. 
+
+# All Models with AICc < 2
+
+```{r}
+
+rm(list = ls()) # using dataframes with predictor and response variables
+
+kma <- readRDS(file = "./Data/CompleteDFs/KMA_20250327.Rds")
+ptaE <- readRDS(file = "./Data/CompleteDFs/ptaE_20250327.Rds")
+r17 <- readRDS(file = "./Data/CompleteDFs/r17_20250327.Rds")
+
+# Dredging
+
+globMod <- glm(Presence ~ F100 + FM1 + KBDI + Temp + BI, data = kma, family = binomial)
+
+
+options(na.action = "na.fail")
+
+model_dredge <- dredge(globMod, 
+                       evaluate = TRUE,
+                       rank = "AICc")
+
+# View top models
+
+top_models_kma <- model.sel(model_dredge, rank = "AICc")
+subset(top_models_kma, delta < 2)
+
+```
+
+# Model Averaging
+
+```{r}
+
+avg_model <- model.avg(model_dredge, subset = delta < 2)
+summary(avg_model)
+
+
+```
+
+# Variable Importance
+
+```{r}
+
+imp <- sw(model_dredge)
+
+var_importance_df <- data.frame(
+  Variable = names(imp),
+  Sum_of_Weights = imp
+) %>%
+  arrange(desc(Sum_of_Weights)) 
+
+```
+
+**FM1 is still the most predictive variable for KMA, followed by F100 (i.e., the results did not change upon adding important variables from other regions). Temp emerged in the top model set and showed a variable importance weight just below that of F100, but I'd hesitate to include it. The coefficients in the individual models as well as the model average are the inverse of what I'd expect. I added it because it was very important in the PTA first-pass results, but it wasn't originally included because the univariate analysis did not show a strong association.**
+
+**I expected this result, but it was still worth a shot, and this gave me a little boost of confidence in the variable selection process**
+
+
+
+
+
+
+
+
+
+
+
+
+
 
