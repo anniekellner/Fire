@@ -18,14 +18,15 @@ knitr::opts_chunk$set(
 library(tidyverse)
 library(kableExtra)
 library(MuMIn)
+library(pscl)
 
 ```
 
 ```{r load-data}
 
-pta <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
-r17 <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
-kma <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+pta_fire <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+r17_fire <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+kma_fire <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
 
 bigFireDays <- read_csv("./Data/Multiple_Fires.csv")
 
@@ -33,7 +34,9 @@ bigFireDays <- read_csv("./Data/Multiple_Fires.csv")
 
 ## Fires >= 5 Acres & >= 2 acres
 
-```{r large-or-multiple-fires}
+*KMA*
+
+```{r create-df}
 
 bigFireDays <- data.frame(
     matrix(NA, 
@@ -52,49 +55,125 @@ bigFireDays <- data.frame(
     )
 )
 
+```
 
+```{r remove-dups-kma}
 
-# KMA
+# Remove duplicate entries from different sources
 
-kma5 <- kma %>%
-  filter(acres >= 5) %>%
-  select(Date, acres) 
+kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y") # 208 observations
 
-bigFireDays["Acres5plus", "KMA"] <- tally(kma5)$n
+# Find duplicates (multiple fires on a single day)
 
-kma2 <- kma %>%
-  filter(acres >= 2) %>%
-  select(Date, acres) 
+dups <- kma_fire %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
 
-bigFireDays["Acres2plus", "KMA"] <- tally(kma2)$n
+true_dups <- dups %>%
+  group_by(Date) %>%
+  filter(n_distinct(Data_Source) == 1) %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n) %>%
+  ungroup()
 
-bigFireDays["Days_w_Multiple_Fires", "KMA"] <- 29
-bigFireDays["MaxFires_OneDay", "KMA"] <- 3
-bigFireDays["Days_2Fires", "KMA"] <- 28
-bigFireDays["Days_3Fires", "KMA"] <- 1
+kma_noDups <- anti_join(kma_fire, dups) # 149 observations
+
+kma_true <- kma_noDups %>%
+  full_join(true_dups) %>%
+  arrange(Date) # 167 observations - this looks right
+
+```
+
+```{r get-acreage-kma}
+
+# Get fires >= 5 and >=2 acres
+
+kma5fire <- kma_true %>%
+  filter(acres >= 5) #%>%
+  #select(Date, acres) 
+
+bigFireDays["Acres5plus", "KMA"] <- tally(kma5fire)$n
+
+kma2fire <- kma_true %>%
+  filter(acres >= 2) #%>%
+  #select(Date, acres) 
+
+bigFireDays["Acres2plus", "KMA"] <- tally(kma2fire)$n
+
+bigFireDays["Days_w_Multiple_Fires", "KMA"] <- tally(kma_true)$n
+bigFireDays["MaxFires_OneDay", "KMA"] <- max(kma_true$count, na.rm = TRUE)
+bigFireDays["Days_2Fires", "KMA"] <- tally(kma_true)$n
+bigFireDays["Days_3Fires", "KMA"] <- 0
 bigFireDays["Days_4Fires", "KMA"] <- 0
 
+```
+
+```{r remove-dups-pta}
 
 # PTA East
 
-pta5 <- pta %>%
+pta_fire$Date <- as.Date(pta_fire$Date, format = "%m/%d/%Y") # 198 observations
+
+# Find duplicates (multiple fires on a single day)
+
+dups_pta <- pta_fire %>%
+  group_by(Date) %>%
+  filter(n() > 1) %>%
+  arrange(Date) 
+
+true_dups_pta <- dups_pta %>% # 61
+  group_by(Date) %>%
+  filter(n_distinct(Data_Source) == 1) %>%
+  add_count(Date) %>%
+  arrange(Date) %>%
+  rename(count = n) %>%
+  ungroup()
+
+pta_noDups <- anti_join(pta_fire, dups_pta) # 137 observations
+
+pta_true <- pta_noDups %>%
+  full_join(true_dups_pta) %>%
+  arrange(Date) # 198 observations - no duplicate entries
+
+```
+
+```{r get-acreage-pta}
+
+pta5fire <- pta_true %>%
   filter(acres >= 5) %>%
-  select(Date, acres) 
+  arrange(Date)
 
-bigFireDays["Acres5plus", "PTA"] <- tally(pta5)$n
+bigFireDays["Acres5plus", "PTA"] <- tally(pta5fire)$n
 
-pta2 <- pta %>%
+pta2fire <- pta_true %>%
   filter(acres >= 2) %>%
-  select(Date, acres) 
+  arrange(Date)
 
-bigFireDays["Acres2plus", "PTA"]<- tally(pta2)$n
+bigFireDays["Acres2plus", "PTA"]<- tally(pta2fire)$n
 
 
-bigFireDays["Days_w_Multiple_Fires", "PTA"] <- 26
-bigFireDays["MaxFires_OneDay", "PTA"] <- 4
-bigFireDays["Days_2Fires", "PTA"] <- 18
-bigFireDays["Days_3Fires", "PTA"] <- 7
-bigFireDays["Days_4Fires", "PTA"] <- 1
+bigFireDays["Days_w_Multiple_Fires", "PTA"] <- tally(pta_true)$n
+bigFireDays["MaxFires_OneDay", "PTA"] <- max(pta_true$count, na.rm = TRUE)
+bigFireDays["Days_2Fires", "PTA"] <- pta_true %>%
+  filter(count == 2) %>%
+  distinct(Date) %>%
+  tally() %>%
+  pull()
+
+bigFireDays["Days_3Fires", "PTA"] <- pta_true %>%
+  filter(count == 3) %>%
+  distinct(Date) %>%
+  tally() %>%
+  pull()
+
+bigFireDays["Days_4Fires", "PTA"] <- pta_true %>%
+  filter(count == 4) %>%
+  distinct(Date) %>%
+  tally() %>%
+  pull()
+
 
 # R17
 
@@ -114,7 +193,7 @@ knitr::kable(bigFireDays,
              caption = "Summary of Large and/or Multiple Fires") %>%
     kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE) %>%
-  row_spec(0:nrow(bigFires),
+  row_spec(0:nrow(bigFireDays),
            background = "white",
            color = "black")
 
@@ -178,10 +257,65 @@ var_importance_df <- data.frame(
 
 **FM1 is still the most predictive variable for KMA, followed by F100 (i.e., the results did not change upon adding important variables from other regions). Temp emerged in the top model set and showed a variable importance weight just below that of F100, but I'd hesitate to include it. The coefficients in the individual models as well as the model average are the inverse of what I'd expect. I added it because it was very important in the PTA first-pass results, but it wasn't originally included because the univariate analysis did not show a strong association.**
 
-**I expected this result, but it was still worth a shot, and this gave me a little boost of confidence in the variable selection process**
+**I expected this result, but it was still worth a shot, and this exercise gave me a little boost of confidence in our variable selection process**
+
+
+### PART TWO: THE HURDLE MODEL
+
+I think this model might make sense for our data. It accounts for zero-inflation, but isn't exactly the same as a zero-inflated model. The following are reasons a person might choose a hurdle model (in general):
+
+  * Zeros and Ones are generated by different processes
+      We can discuss this, but I think it's a reasonable assumption for this analysis. Ignition would be what leads to Ones,         and a lack of ignition would lead to zeros, even under the same conditions otherwise.
+      
+  * This model allows for modeling presence/absence separately from intensity.
+  
+Hurdle Models separate the analysis into two parts:
+  1. Logistic Regression that predicts whether or not a fire occurs, and
+  2. A truncated model that predicts the size or intensity of the fire
+  
+  
+```{r add-size-and-count-to-DFs}
+
+
+  
+
+  
 
 
 
+
+
+
+```
+
+  
+  
+```{r PTA-hurdle}
+
+hurdle_model <- hurdle(
+  Presence ~ Temp + KBDI | Temp + KBDI,
+  data = ptaE,
+  dist = "poisson",
+  zero.dist = "binomial"
+)
+
+# View results
+
+summary(hurdle_model)
+
+```
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 
 
