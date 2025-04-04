@@ -26,6 +26,8 @@ library(poweRlaw)
 library(glmmTMB)
 library(AICcmodavg)
 library(pROC)
+library(caret)
+library(MLmetrics)
 
 ```
 
@@ -431,6 +433,11 @@ I have to extract the presence-absence component from the hurdle and ZINB models
 
 ```{r}
 
+# Make sure data is in factor form
+
+ptaE$Presence <- as.factor(ptaE$Presence)
+
+
 # Model Predictions
 
 logistic_Temp_KBDI_pred <- predict(logistic_Temp_KBDI, 
@@ -439,8 +446,8 @@ logistic_Temp_KBDI_pred <- predict(logistic_Temp_KBDI,
 logistic_Temp_pred <- predict(logistic_Temp, type = "response")
 zinb_temp_KBDI_pred <- predict(zinb_temp_KBDI, type = "zero")
 zinb_Temp_pred <- predict(zinb_Temp, type = "zero")
-hurdle_tempKBDI_pred <- predict(hurdle_tempKBDI, type = "response")
-hurdle_TempOnly_pred <- predict(hurdle_TempOnly, type = "response")
+hurdle_tempKBDI_pred <- predict(hurdle_tempKBDI, type = "zprob")
+hurdle_TempOnly_pred <- predict(hurdle_TempOnly, type = "zprob")
 
 # Adjust Hurdle and ZINB models so that we're looking at the probability of a fire, not a zero
 
@@ -452,113 +459,40 @@ hurdle_TempOnly_pred <- 1 - hurdle_TempOnly_pred
 
 ```
 
+
 ```{r model-comparison-pta}
 
-# Create comparison
-presence_comparison <- data.frame(
-  Model = c("Logistic", "Hurdle", "ZINB"),
+# Compare AUC's
+
+# Create ROC objects
+
+roc_log_Temp <- roc(ptaE$Presence, logistic_Temp_pred)
+roc_log_tempKBDI <- roc(ptaE$Presence, logistic_Temp_KBDI_pred)
+roc_hurdle_Temp <- roc(ptaE$Presence, hurdle_TempOnly_pred)
+roc_hurdle_tempKBDI <- roc(ptaE$Presence, hurdle_tempKBDI_pred)
+roc_zinb_Temp <- roc(ptaE$Presence, zinb_Temp_pred)
+roc_zinb_tempKBDI <- roc(ptaE$Presence, zinb_temp_KBDI_pred)
+
+
+compare_AUCs <- data.frame(
+    Model = c("hurdle_Temp", "hurdle_temp_KBDI",
+            "logistic_Temp", "logistic_Temp_KBDI",
+            "zinb_Temp", "zinb_temp_KBDI"),
   AUC = c(
-    auc(your_data$Presence, logistic_pred),
-    auc(your_data$Presence, hurdle_presence_pred),
-    auc(your_data$Presence, zinb_presence_pred)
+    auc(roc_hurdle_Temp),
+    auc(roc_hurdle_tempKBDI),
+    auc(roc_log_Temp),
+    auc(roc_log_tempKBDI),
+    auc(roc_zinb_Temp),
+    auc(roc_zinb_tempKBDI)
   )
-)
-
-```
-
-
-
-
-
-
-
-
-
-```{r models}
-
-# Logistic Regression
-
-logistic_Temp_KBDI <- glm(
-  Presence ~ Temp + KBDI,
-  data = ptaE, 
-  family = binomial()
-)
-
-logistic_Temp <- glm(
-  Presence ~ Temp,
-  data = ptaE,
-  family = binomial()
-  )
-
-# Hurdle - Temp + KBDI
-
-hurdle_tempKBDI <- glmmTMB(
-  Total_Acres_Burned ~ Temp + KBDI, # variables affecting fire size
-  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
-  family = gaussian(),
-  data = ptaE
-)
-
-# Hurdle - Temp only
-
-hurdle_TempOnly <- glmmTMB(
-  Total_Acres_Burned ~ Temp, # variables affecting fire size
-  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
-  family = gaussian(),
-  data = ptaE
-)
-
-# ZINB - Temp + KBDI
-
-zinb_temp_KBDI  <- zeroinfl(
-  Count ~ Temp + KBDI |  # Main model
-    Temp + KBDI,                      # Zero-inflation model
-  data = ptaE,
-  dist = "negbin"  # Negative binomial distribution
-) 
-
-# ZINB - Temp Only
-
-zinb_Temp  <- zeroinfl(
-  Count ~ Temp |  # Main model
-    Temp,                      # Zero-inflation model
-  data = ptaE,
-  dist = "negbin"  # Negative binomial distribution
-) 
-
-allModels <- list(
-  logistic_Temp,
-  logistic_Temp_KBDI,
-  zinb_Temp,
-  zinb_temp_KBDI, 
-  hurdle_TempOnly,
-  hurdle_tempKBDI
 )
 
 ```
 
 ```{r}
 
-# Comparison Table
-
-PA_comparison <- data.frame(
-  Model = c(logistic_Temp, 
-            logistic_Temp_KBDI,
-            zinb_Temp,
-            zinb_temp_KBDI,
-            hurdle_TempOnly,
-            hurdle_tempKBDI),
-  AUC = c(
-    # Calculate AUC for each model's presence predictions
-    auc(ptaE$Presence, predict(logistic_Temp, type = "response")),
-    auc(ptaE$Presence, predict(logistic_Temp_KBDI, type = "response")),
-    auc(ptaE$Presence, predict(zinb_temp_KBDI, type = "zero")),
-    auc(ptaE$Presence, predict(zinb_Temp, type = "zero")),
-    auc(ptaE$Presence, predict(hurdle_tempKBDI, type = "response")),
-    auc(ptaE$Presence, predict(hurdle_TempOnly, type = "response"))
-  )
-)
-
+print(compare_AUCs)
 
 ```
 
@@ -573,19 +507,15 @@ PA_comparison <- data.frame(
 
 
 
-PA_comparison <- data.frame(
-  Model = c("Logistic", "Hurdle", "ZINB"),
-  AUC = c(
-    # Calculate AUC for each model's presence predictions
-    auc(fire_data$fire_present, predict(logistic_model, type = "response")),
-    auc(fire_data$fire_present, predict(hurdle_model, type = "response")),
-    auc(fire_data$fire_present, predict(zinb_model, type = "zero"))
-  )
-)
 
 
 
-```
+
+
+
+
+
+
 
 
 
