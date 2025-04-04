@@ -19,26 +19,43 @@ library(tidyverse)
 library(kableExtra)
 library(MuMIn)
 library(pscl)
+library(MASS)
+library(fitdistrplus)
+library(ggplot2)
+library(poweRlaw)
+library(glmmTMB)
+library(AICcmodavg)
+library(pROC)
 
 ```
 
 ```{r load-data}
 
-pta_fire <- read.csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
-r17_fire <- read.csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
-kma_fire <- read.csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+pta_fire <- read_csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+r17_fire <- read_csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+kma_fire <- read_csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
 
-bigFireDays <- read_csv("./Data/Multiple_Fires.csv")
+#r17acres <- read_csv("./Data/Range17/R17_Acreage.csv")
+
+intensity <- read_csv("./Data/Multiple_Fires.csv")
 
 ```
 
+```{r Dates}
+
+pta_fire$Date <- as.Date(pta_fire$Date, format = "%m/%d/%Y")
+r17_fire$Date <- as.Date(r17_fire$Date, format = "%m/%d/%Y")
+kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y")
+
+```
+
+
 ## Fires >= 5 Acres & >= 2 acres
 
-*KMA*
 
 ```{r create-df}
 
-bigFireDays <- data.frame(
+intensity <- data.frame(
     matrix(NA, 
            nrow = 7,  # Number of metrics you want to track
            ncol = 3,  # Number of locations
@@ -48,8 +65,8 @@ bigFireDays <- data.frame(
                  "Days_2Fires",
                  "Days_3Fires",
                  "Days_4Fires",
-                 "Acres5plus",
-                 "Acres2plus"),  # Row names
+                 "Acres_5+",
+                 "Acres_2+"),  # Row names
                c("KMA", "PTA", "Range17")  # Column names
            )
     )
@@ -57,147 +74,86 @@ bigFireDays <- data.frame(
 
 ```
 
-```{r remove-dups-kma}
-
-# Remove duplicate entries from different sources
-
-kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y") # 208 observations
-
-# Find duplicates (multiple fires on a single day)
-
-dups <- kma_fire %>%
-  group_by(Date) %>%
-  filter(n() > 1) %>%
-  arrange(Date) 
-
-true_dups <- dups %>%
-  group_by(Date) %>%
-  filter(n_distinct(Data_Source) == 1) %>%
-  add_count(Date) %>%
-  arrange(Date) %>%
-  rename(count = n) %>%
-  ungroup()
-
-kma_noDups <- anti_join(kma_fire, dups) # 149 observations
-
-kma_true <- kma_noDups %>%
-  full_join(true_dups) %>%
-  arrange(Date) # 167 observations - this looks right
-
-```
-
 ```{r get-acreage-kma}
 
 # Get fires >= 5 and >=2 acres
 
-kma5fire <- kma_true %>%
+kma5fire <- kma_fire %>%
   filter(acres >= 5) #%>%
   #select(Date, acres) 
 
-bigFireDays["Acres5plus", "KMA"] <- tally(kma5fire)$n
+intensity["Acres_5+", "KMA"] <- tally(kma5fire)$n
 
-kma2fire <- kma_true %>%
+kma2fire <- kma_fire %>%
   filter(acres >= 2) #%>%
   #select(Date, acres) 
 
-bigFireDays["Acres2plus", "KMA"] <- tally(kma2fire)$n
+intensity["Acres_2+", "KMA"] <- tally(kma2fire)$n
 
-bigFireDays["Days_w_Multiple_Fires", "KMA"] <- tally(kma_true)$n
-bigFireDays["MaxFires_OneDay", "KMA"] <- max(kma_true$count, na.rm = TRUE)
-bigFireDays["Days_2Fires", "KMA"] <- tally(kma_true)$n
-bigFireDays["Days_3Fires", "KMA"] <- 0
-bigFireDays["Days_4Fires", "KMA"] <- 0
-
-```
-
-```{r remove-dups-pta}
-
-# PTA East
-
-pta_fire$Date <- as.Date(pta_fire$Date, format = "%m/%d/%Y") # 198 observations
-
-# Find duplicates (multiple fires on a single day)
-
-dups_pta <- pta_fire %>%
-  group_by(Date) %>%
-  filter(n() > 1) %>%
-  arrange(Date) 
-
-true_dups_pta <- dups_pta %>% # 61
-  group_by(Date) %>%
-  filter(n_distinct(Data_Source) == 1) %>%
-  add_count(Date) %>%
-  arrange(Date) %>%
-  rename(count = n) %>%
-  ungroup()
-
-pta_noDups <- anti_join(pta_fire, dups_pta) # 137 observations
-
-pta_true <- pta_noDups %>%
-  full_join(true_dups_pta) %>%
-  arrange(Date) # 198 observations - no duplicate entries
+intensity["Days_w_Multiple_Fires", "KMA"] <- 29
+intensity["MaxFires_OneDay", "KMA"] <- 3
+intensity["Days_2Fires", "KMA"] <- 28
+intensity["Days_3Fires", "KMA"] <- 1
+intensity["Days_4Fires", "KMA"] <- 0
 
 ```
+
 
 ```{r get-acreage-pta}
 
-pta5fire <- pta_true %>%
+pta5fire <- pta_fire %>%
   filter(acres >= 5) %>%
   arrange(Date)
 
-bigFireDays["Acres5plus", "PTA"] <- tally(pta5fire)$n
+intensity["Acres_5+", "PTA"] <- tally(pta5fire)$n
 
-pta2fire <- pta_true %>%
+pta2fire <- pta_fire %>%
   filter(acres >= 2) %>%
   arrange(Date)
 
-bigFireDays["Acres2plus", "PTA"]<- tally(pta2fire)$n
+intensity["Acres_2+", "PTA"]<- tally(pta2fire)$n
+
+intensity["Days_w_Multiple_Fires", "PTA"] <- 26
+intensity["MaxFires_OneDay", "PTA"] <- 4
+intensity["Days_2Fires", "PTA"] <- 18
+intensity["Days_3Fires", "PTA"] <- 7
+intensity["Days_4Fires", "PTA"] <- 1
+
+```
+
+```{r get-acreage-r17}
 
 
-bigFireDays["Days_w_Multiple_Fires", "PTA"] <- tally(pta_true)$n
-bigFireDays["MaxFires_OneDay", "PTA"] <- max(pta_true$count, na.rm = TRUE)
-bigFireDays["Days_2Fires", "PTA"] <- pta_true %>%
-  filter(count == 2) %>%
-  distinct(Date) %>%
-  tally() %>%
-  pull()
+r17_5fire <- r17_fire %>%
+  filter(ACRES_BURN >= 5) %>%
+  arrange(Date)
 
-bigFireDays["Days_3Fires", "PTA"] <- pta_true %>%
-  filter(count == 3) %>%
-  distinct(Date) %>%
-  tally() %>%
-  pull()
+intensity["Acres_5+", "Range17"] <- tally(r17_5fire)$n
 
-bigFireDays["Days_4Fires", "PTA"] <- pta_true %>%
-  filter(count == 4) %>%
-  distinct(Date) %>%
-  tally() %>%
-  pull()
+r17_2fire <- r17_fire %>%
+  filter(ACRES_BURN >= 2) %>%
+  arrange(Date)
+
+intensity["Acres_2+", "Range17"] <- tally(r17_2fire)$n
 
 
-# R17
-
-# Range 17 looks like it comes from a different data source - could not calculate acreage
-
-bigFireDays["Days_w_Multiple_Fires", "Range17"] <- 20
-bigFireDays["MaxFires_OneDay", "Range17"] <- 4
-bigFireDays["Days_2Fires", "Range17"] <- 15
-bigFireDays["Days_3Fires", "Range17"] <- 4
-bigFireDays["Days_4Fires", "Range17"] <- 1
+intensity["Days_w_Multiple_Fires", "Range17"] <- 20
+intensity["MaxFires_OneDay", "Range17"] <- 4
+intensity["Days_2Fires", "Range17"] <- 15
+intensity["Days_3Fires", "Range17"] <- 4
+intensity["Days_4Fires", "Range17"] <- 1
 
 
-
-
-
-knitr::kable(bigFireDays,
+knitr::kable(intensity,
              caption = "Summary of Large and/or Multiple Fires") %>%
     kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = FALSE) %>%
-  row_spec(0:nrow(bigFireDays),
+  row_spec(0:nrow(intensity),
            background = "white",
            color = "black")
 
 ```
+
 
 ## ADDING EXPLANATORY VARIABLES FROM PTA/R17 TO KMA MODELS
 
@@ -274,38 +230,369 @@ Hurdle Models separate the analysis into two parts:
   2. A truncated model that predicts the size or intensity of the fire
   
   
-```{r add-size-and-count-to-DFs}
+```{r add-acreage-to-DFs}
 
+# KMA
+
+burnKMA <- kma_fire %>%
+  group_by(Date) %>%
+  mutate(Total_Acres_Burned = sum(acres)) %>%
+  select(Date, Total_Acres_Burned)
+
+kma <- kma %>%
+  left_join(burnKMA) %>%
+  replace_na(list(Total_Acres_Burned = 0))
+
+# PTA East
+
+burnPTA <- pta_fire %>%
+  group_by(Date) %>%
+  mutate(Total_Acres_Burned = sum(acres)) %>%
+  select(Date, Total_Acres_Burned) 
 
   
+ptaE <- ptaE %>%
+  left_join(burnPTA) %>%
+  replace_na(list(Total_Acres_Burned = 0))
 
+# Range 17
+
+burnR17 <- r17_fire %>%
+  group_by(Date) %>%
+  mutate(Total_Acres_Burned = sum(ACRES_BURN)) %>%
+  select(Date, Total_Acres_Burned)
+
+r17 <- r17 %>%
+  left_join(burnR17) %>%
+  replace_na(list(Total_Acres_Burned = 0))
   
+```
 
 
+# Finding an appropriate distribution for the intensity data
+
+I landed on the Power Law Distribution. Prior to learning that this was common knowledge (lol),
+I checked the data to see if it fit. Unsurprisingly, it does. Here are those results:
 
 
+```{r check-power-law-dynamics}
 
+discrete <- ceiling(nonZero_PTA$Total_Acres_Burned) # Values must be discrete, so I rounded up
+
+
+pl_fit <- displ$new(discrete)
+est <- estimate_xmin(pl_fit)
+pl_fit$setXmin(est)
+
+alpha <- pl_fit$pars # Between 1.5 and 3.5 - check
+
+cat("If the data fits a power law distribution, the value of the exponent (alpha) is typically between 1.5 - 3.5 for natural phenomena. The alpha value for the PTA East data is:", alpha)
+
+
+xmin <- pl_fit$xmin # power law begins immediately
 
 ```
 
-  
-  
-```{r PTA-hurdle}
+Using a power law distribution with a hurdle model is a bit trickier than it's worth, so I'm using a lognormal distribution instead. I compared gamma, lognormal, and weibull distributions to see which fit the data best (using PTA as an example). Lognormal it is. 
 
-hurdle_model <- hurdle(
-  Presence ~ Temp + KBDI | Temp + KBDI,
-  data = ptaE,
-  dist = "poisson",
-  zero.dist = "binomial"
+```{r Distr-for-Hurdle}
+
+fits <- list(
+  gamma = fitdistr(nonZero_PTA$Total_Acres_Burned, "gamma"),
+  lognormal = fitdistr(nonZero_PTA$Total_Acres_Burned, "lognormal"),
+  weibull = fitdistr(nonZero_PTA$Total_Acres_Burned, "weibull"),
+  pl_fit
 )
 
-# View results
+sapply(fits, AIC)
+
+```
+
+Here are the Hurdle Model results using the same predictors for each part:
+
+```{r PTA-Hurdle}
+
+hurdle_model <- glmmTMB(
+  Total_Acres_Burned ~ Temp + KBDI, # variables affecting fire size
+  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
+  family = gaussian(),
+  data = ptaE
+)
 
 summary(hurdle_model)
 
 ```
+
+For shits and giggles, I switched up the variables for the second part (explaining probability of "no fire") to see what would happen. I'm not showing the results, but I ran two models, one with Temp + FM1 as predictors and one with Temp + RnDr (both FM1 and RnDr were original candidates). 
+
+Neither improved the model over Temp + KBDI.
+
+
+The next thing I did was compare Temp + KBDI to Temp only, In the basic logistic regression analysis, Temp + KBDI was the top model. 
+
+```{r}
+
+hurdle_model_TempOnly <- glmmTMB(
+  Total_Acres_Burned ~ Temp, # variables affecting fire size
+  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
+  family = gaussian(),
+  data = ptaE
+)
+
+summary(hurdle_model_TempOnly)
+
+
+```
+
+
+```{r compare-temp+KBDI-to-Temp}
+
+models <- list(
+  modTemp_KBDI = hurdle_model,
+  modTemp = hurdle_model_TempOnly
+)
+
+# Create comparison dataframe
+
+model_comparison <- data.frame(
+  Model = names(models),
+  AIC = sapply(models, AIC),
+  AICc = sapply(models, AICc),  # Add AICc
+  BIC = sapply(models, BIC),
+  LogLik = sapply(models, function(x) logLik(x)[1]),
+  DF = sapply(models, function(x) attr(logLik(x), "df"))
+)
+
+# Sort by AICc 
+
+model_comparison <- model_comparison[order(model_comparison$AICc),]
+
+# Calculate AICc differences
+
+model_comparison$delta_AICc <- model_comparison$AICc - min(model_comparison$AICc)
+
+# Calculate AIC weights
+model_comparison$AIC_weight <- exp(-0.5 * model_comparison$delta_AIC) / 
+                              sum(exp(-0.5 * model_comparison$delta_AIC))
+
+knitr::kable(model_comparison,
+             caption = "Temp vs. Temp_KBDI for PTA East",
+             digits = 2) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+
+```
+
+Using this framework, Temp alone outcompetes Temp + KBDI for best model for PTA East. The column "AIC_weight" is the probability of that model being the best. (Don't confuse 'AIC weight' with 'variable importance weights'; they are different things) 
+
+
+## ZERO-INFLATED NEGATIVE BINOMIAL MODEL
+
+**Temp + KBDI for both parts**
+
+```{r ZINB-Temp+KBDI}
+
+zinb_temp_KBDI  <- zeroinfl(
+  Count ~ Temp + KBDI |  # Main model
+    Temp + KBDI,                      # Zero-inflation model
+  data = ptaE,
+  dist = "negbin"  # Negative binomial distribution
+) 
+
+summary(zinb_model)
+
+```
+
+Interestingly, the results from this model show that KBDI may be 
+predictive of # of fires, but isn't a strong predictor of occurrence.
+
+I'm going to try modeling 'Count' using KBDI to predict number of fires and Temp to predict occurrence
+
+```{r ZINB-differentVars}
+
+zinb_diff <- zeroinfl(
+  Count ~ KBDI | Temp,
+  data = ptaE,
+  dist = "negbin"
+)
+
+summary(zinb_diff)
+
+```
+
+Huh. That's interesting.
+
+
+## COMPARE PRESENCE-ABSENCE COMPONENT
+
+
+I have to extract the presence-absence component from the hurdle and ZINB models in order to compare them fairly to the logistic models
+
+
+```{r}
+
+# Model Predictions
+
+logistic_Temp_KBDI_pred <- predict(logistic_Temp_KBDI, 
+                                   type = "response")
+
+logistic_Temp_pred <- predict(logistic_Temp, type = "response")
+zinb_temp_KBDI_pred <- predict(zinb_temp_KBDI, type = "zero")
+zinb_Temp_pred <- predict(zinb_Temp, type = "zero")
+hurdle_tempKBDI_pred <- predict(hurdle_tempKBDI, type = "response")
+hurdle_TempOnly_pred <- predict(hurdle_TempOnly, type = "response")
+
+# Adjust Hurdle and ZINB models so that we're looking at the probability of a fire, not a zero
+
+zinb_Temp_pred <- 1 - zinb_Temp_pred
+zinb_temp_KBDI_pred <- 1 - zinb_temp_KBDI_pred
+
+hurdle_tempKBDI_pred <- 1 - hurdle_tempKBDI_pred
+hurdle_TempOnly_pred <- 1 - hurdle_TempOnly_pred
+
+```
+
+```{r model-comparison-pta}
+
+# Create comparison
+presence_comparison <- data.frame(
+  Model = c("Logistic", "Hurdle", "ZINB"),
+  AUC = c(
+    auc(your_data$Presence, logistic_pred),
+    auc(your_data$Presence, hurdle_presence_pred),
+    auc(your_data$Presence, zinb_presence_pred)
+  )
+)
+
+```
+
+
+
+
+
+
+
+
+
+```{r models}
+
+# Logistic Regression
+
+logistic_Temp_KBDI <- glm(
+  Presence ~ Temp + KBDI,
+  data = ptaE, 
+  family = binomial()
+)
+
+logistic_Temp <- glm(
+  Presence ~ Temp,
+  data = ptaE,
+  family = binomial()
+  )
+
+# Hurdle - Temp + KBDI
+
+hurdle_tempKBDI <- glmmTMB(
+  Total_Acres_Burned ~ Temp + KBDI, # variables affecting fire size
+  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
+  family = gaussian(),
+  data = ptaE
+)
+
+# Hurdle - Temp only
+
+hurdle_TempOnly <- glmmTMB(
+  Total_Acres_Burned ~ Temp, # variables affecting fire size
+  zi = ~ ., # vars affecting change (i.e., probability of getting a zero)
+  family = gaussian(),
+  data = ptaE
+)
+
+# ZINB - Temp + KBDI
+
+zinb_temp_KBDI  <- zeroinfl(
+  Count ~ Temp + KBDI |  # Main model
+    Temp + KBDI,                      # Zero-inflation model
+  data = ptaE,
+  dist = "negbin"  # Negative binomial distribution
+) 
+
+# ZINB - Temp Only
+
+zinb_Temp  <- zeroinfl(
+  Count ~ Temp |  # Main model
+    Temp,                      # Zero-inflation model
+  data = ptaE,
+  dist = "negbin"  # Negative binomial distribution
+) 
+
+allModels <- list(
+  logistic_Temp,
+  logistic_Temp_KBDI,
+  zinb_Temp,
+  zinb_temp_KBDI, 
+  hurdle_TempOnly,
+  hurdle_tempKBDI
+)
+
+```
+
+```{r}
+
+# Comparison Table
+
+PA_comparison <- data.frame(
+  Model = c(logistic_Temp, 
+            logistic_Temp_KBDI,
+            zinb_Temp,
+            zinb_temp_KBDI,
+            hurdle_TempOnly,
+            hurdle_tempKBDI),
+  AUC = c(
+    # Calculate AUC for each model's presence predictions
+    auc(ptaE$Presence, predict(logistic_Temp, type = "response")),
+    auc(ptaE$Presence, predict(logistic_Temp_KBDI, type = "response")),
+    auc(ptaE$Presence, predict(zinb_temp_KBDI, type = "zero")),
+    auc(ptaE$Presence, predict(zinb_Temp, type = "zero")),
+    auc(ptaE$Presence, predict(hurdle_tempKBDI, type = "response")),
+    auc(ptaE$Presence, predict(hurdle_TempOnly, type = "response"))
+  )
+)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+PA_comparison <- data.frame(
+  Model = c("Logistic", "Hurdle", "ZINB"),
+  AUC = c(
+    # Calculate AUC for each model's presence predictions
+    auc(fire_data$fire_present, predict(logistic_model, type = "response")),
+    auc(fire_data$fire_present, predict(hurdle_model, type = "response")),
+    auc(fire_data$fire_present, predict(zinb_model, type = "zero"))
+  )
+)
+
+
+
+```
+
+
+
+
   
   
+
   
   
   
