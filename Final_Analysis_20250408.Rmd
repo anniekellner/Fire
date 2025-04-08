@@ -1,0 +1,132 @@
+---
+title: "Final Analysis"
+author: "Annie Kellner"
+date: "2025-04-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load-libraries}
+
+library(tidyverse)
+library(kableExtra)
+
+```
+
+```{r load-data}
+
+pta_fire <- read_csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
+r17_fire <- read_csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
+kma_fire <- read_csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+
+```
+
+```{r dataframe-prep}
+
+# Dates to date object
+
+pta_fire$Date <- as.Date(pta_fire$Date, format = "%m/%d/%Y")
+r17_fire$Date <- as.Date(r17_fire$Date, format = "%m/%d/%Y")
+kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y")
+
+```
+
+```{r intensity}
+
+## Fire Intensity - Acres Burned & Multiple Fires
+  
+# Create DF
+
+intensity <- data.frame(
+    matrix(NA, 
+           nrow = 7,  # Number of metrics you want to track
+           ncol = 3,  # Number of locations
+           dimnames = list(
+               c("Days_w_Multiple_Fires",
+                 "MaxFires_OneDay",
+                 "Days_2Fires",
+                 "Days_3Fires",
+                 "Days_4Fires",
+                 "Acres_5+",
+                 "Acres_2+"),  # Row names
+               c("KMA", "PTA", "Range17")  # Column names
+           )
+    )
+)
+
+
+## Acres Burned
+
+# KMA
+
+kma5fire <- kma_fire %>%
+  filter(acres >= 5) #%>%
+  #select(Date, acres) 
+
+intensity["Acres_5+", "KMA"] <- tally(kma5fire)$n
+
+kma2fire <- kma_fire %>%
+  filter(acres >= 2) #%>%
+  #select(Date, acres) 
+
+intensity["Acres_2+", "KMA"] <- tally(kma2fire)$n
+
+intensity["Days_w_Multiple_Fires", "KMA"] <- 29
+intensity["MaxFires_OneDay", "KMA"] <- 3
+intensity["Days_2Fires", "KMA"] <- 28
+intensity["Days_3Fires", "KMA"] <- 1
+intensity["Days_4Fires", "KMA"] <- 0
+
+# PTA East
+
+pta5fire <- pta_fire %>%
+  filter(acres >= 5) %>%
+  arrange(Date)
+
+intensity["Acres_5+", "PTA"] <- tally(pta5fire)$n
+
+pta2fire <- pta_fire %>%
+  filter(acres >= 2) %>%
+  arrange(Date)
+
+intensity["Acres_2+", "PTA"]<- tally(pta2fire)$n
+
+intensity["Days_w_Multiple_Fires", "PTA"] <- 26
+intensity["MaxFires_OneDay", "PTA"] <- 4
+intensity["Days_2Fires", "PTA"] <- 18
+intensity["Days_3Fires", "PTA"] <- 7
+intensity["Days_4Fires", "PTA"] <- 1
+
+# PTA West/Range 17
+
+r17_5fire <- r17_fire %>%
+  filter(ACRES_BURN >= 5) %>%
+  arrange(Date)
+
+intensity["Acres_5+", "Range17"] <- tally(r17_5fire)$n
+
+r17_2fire <- r17_fire %>%
+  filter(ACRES_BURN >= 2) %>%
+  arrange(Date)
+
+intensity["Acres_2+", "Range17"] <- tally(r17_2fire)$n
+
+
+intensity["Days_w_Multiple_Fires", "Range17"] <- 20
+intensity["MaxFires_OneDay", "Range17"] <- 4
+intensity["Days_2Fires", "Range17"] <- 15
+intensity["Days_3Fires", "Range17"] <- 4
+intensity["Days_4Fires", "Range17"] <- 1
+
+
+```
+
+```{r intensity}
+
+
+
+```
+
