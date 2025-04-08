@@ -422,8 +422,30 @@ summary(zinb_diff)
 
 ```
 
-Huh. That's interesting.
+Huh. That's interesting. Let's do an AUC analysis on the Count part
 
+```{r}
+
+# Predictions for count data
+
+nonZero_PTA2 <- ptaE$Count > 0
+
+count_predictions <- predict(zinb_diff, type = "count")[nonZero_PTA2]
+actual_counts <- ptaE$Count[nonZero_PTA2]
+
+# Create ROC for count predictions using a threshold
+
+roc_zinbdiff <- roc(
+  response = ifelse(actual_counts > median(actual_counts), 1, 0),
+  predictor = count_predictions
+)
+
+auc(roc_zinbdiff)
+
+
+```
+
+KBDI on its own is as useful for predicting count data as temperature is for occurrence. 
 
 ## COMPARE PRESENCE-ABSENCE COMPONENT
 
