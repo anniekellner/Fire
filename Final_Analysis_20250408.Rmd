@@ -13,14 +13,30 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(tidyverse)
 library(kableExtra)
+library(pscl) # for zero-inflated model
+library(MASS) # for negative binomial distribution
 
 ```
 
 ```{r load-data}
 
+# Fire data to get intensity metrics
+
 pta_fire <- read_csv("./Data/PTA_East/PTA_East_FDRS_Wildfires.csv")
 r17_fire <- read_csv("./Data/Range17/PTA_Off_Post_Fire_History.csv")
 kma_fire <- read_csv("C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/KMA_Wx_Fire_Data/KMA_FDRS_Wildfires.csv")
+
+# Dataframes with Presence/Absence and Weather Station Data
+
+kma <- readRDS(file = "./Data/CompleteDFs/KMA_20250327.Rds")
+ptaE <- readRDS(file = "./Data/CompleteDFs/ptaE_20250327.Rds")
+r17 <- readRDS(file = "./Data/CompleteDFs/r17_20250327.Rds")
+
+# Make Presence/Absence columns factor class
+
+kma$Presence <- as.factor(kma$Presence)
+ptaE$Presence <- as.factor(ptaE$Presence)
+r17$Presence <- as.factor(r17$Presence)
 
 ```
 
@@ -34,7 +50,11 @@ kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y")
 
 ```
 
-```{r intensity}
+# FIRE INTENSITY
+
+Fire intensity can be measured either by total acres burned or by the number of fires in a given day. I have provided both measurements in this dataframe. 
+
+```{r intensity--multiple-fires}
 
 ## Fire Intensity - Acres Burned & Multiple Fires
   
@@ -63,8 +83,7 @@ intensity <- data.frame(
 # KMA
 
 kma5fire <- kma_fire %>%
-  filter(acres >= 5) #%>%
-  #select(Date, acres) 
+  filter(acres >= 5)  
 
 intensity["Acres_5+", "KMA"] <- tally(kma5fire)$n
 
@@ -122,11 +141,108 @@ intensity["Days_3Fires", "Range17"] <- 4
 intensity["Days_4Fires", "Range17"] <- 1
 
 
+# Summary Table
+
+knitr::kable(intensity,
+             caption = "Summary of Fire Intensity") %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(0:nrow(intensity),
+           background = "white",
+           color = "black")
+
 ```
 
-```{r intensity}
+
+## THE ZERO-INFLATED NEGATIVE BINOMIAL MODEL (ZINB)
+
+The Hurdle and ZINB models are similar in that both are two-part models that can model fire presence/absence separately from intensity. 
+
+I have decided that the ZINB model is a superior tool for this analysis because it can calculate probabilities associated with both the presence/absence and intensity components of the model (in other words, ZINB can distinguish between days on which fires were impossible vs. days on which fires were probable but did not occur). Hurdle models cannot make this distinction, and therefore cannot provide probabilities associated with fire risk. 
+
+The reason for this difference is the way in which zeros are handled in the model. Essentially, Hurdle models assume that fires could *not* have occurred on days with zeros, whereas the ZINB model allows for the possibility that a fire *could* have occurred, but did not (for example, weather conditions may have been suitable for a fire, but owing to a lack of ignition, no fires occurred). 
+
+The restriction associated with the ZINB is that the data must be discrete, whereas Hurdle models can accommodate both discrete and continuous data. In our case, 'acreage burned' is continuous, and count data (# fires) is discrete. If for some reason it is more desirable to use Acres Burned as a response variable for Intensity, the Hurdle model can be substituted for the ZINB model, but will not provide probabilities associated with fire risk. 
+
+# PTA East
+
+Because I used PTA East as a 'case study' when exploring methods, I already determined that KBDI is the best predictor of Fire Intensity, and Temperature is the best predictor of Presence/Absence. When I used both variables to predict both aspects of the model, KBDI emerged as significant in the 'Count' portion and Temperature emerged as significant in the 'Presence/Absence' portion. Neither was significant in the reverse.  
+
+*Model Summary*
+
+```{r ZINB-ptaE}
+
+ptaE_ZINB <- zeroinfl(
+  Count ~ KBDI | Temp, # The variable to the left of the "|" is the predictor of Count (intensity), and the variable to right is the predictor of Presence/Absence
+  data = ptaE,
+  dist = "negbin" # Negative Binomial distribution 
+)
+
+summary(ptaE_ZINB)
+
+```
 
 
+*How to get Presence/Absence Probability*
+
+```{r ptaE-PA-prob}
+
+# Zero-inflation probabilities
+
+ptaE_zero_probs <- predict(ptaE_ZINB, type = "zero")
+
+head(ptaE_zero_probs)
+
+```
+
+
+*How to get Count Probability*
+
+```{r ptaE-count-Prob}
+
+# Count probabilities
+
+ptaE_count_probs <- predict(ptaE_ZINB, type = "count")
+
+head(ptaE_count_probs)
+
+```
+
+*AUC values*
+
+```{r AUC-Count}
+
+# Predictions for count data
+
+nonZero_PTA <- ptaE$Count > 0
+
+count_predictions <- predict(ptaE_ZINB, type = "count")[nonZero_PTA]
+actual_counts <- ptaE$Count[nonZero_PTA]
+
+# Create ROC for count predictions using a threshold
+
+roc_ZINB_ptaE_count <- roc(
+  response = ifelse(actual_counts > median(actual_counts), 1, 0),
+  predictor = count_predictions
+)
+
+aucCount_ptaE <- auc(roc_ZINB_ptaE_count)
+
+cat("The AUC for the Count portion of the model is", aucCount)
+
+
+```
+
+```{r AUC-PA}
+
+
+ZINB_PA_pred_ptaE <- predict(ptaE_ZINB, type = "zero")
+
+roc_ZINB_PA_ptaE <- roc(ptaE$Presence, ZINB_PA_pred_ptaE)
+
+auc_PA_ptaE <- auc(roc_ZINB_PA_ptaE)
+
+cat("The AUC for the Presence/Absence portion of the model is", auc_PA_ptaE)
 
 ```
 
