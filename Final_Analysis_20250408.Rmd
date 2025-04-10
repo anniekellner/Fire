@@ -15,10 +15,11 @@ library(tidyverse)
 library(kableExtra)
 library(pscl) # for zero-inflated model
 library(MASS) # for negative binomial distribution
+library(MuMIn) # for model comparison
 
 ```
 
-```{r load-data}
+```{r load-data, message=FALSE, warning=FALSE}
 
 # Fire data to get intensity metrics
 
@@ -52,7 +53,7 @@ kma_fire$Date <- as.Date(kma_fire$Date, format = "%m/%d/%Y")
 
 # FIRE INTENSITY
 
-Fire intensity can be measured either by total acres burned or by the number of fires in a given day. I have provided both measurements in this dataframe. 
+Fire intensity can be measured either by total acres burned or by the number of fires in a given day. I have provided both measurements for all three areas in this dataframe. 
 
 ```{r intensity--multiple-fires}
 
@@ -245,4 +246,137 @@ auc_PA_ptaE <- auc(roc_ZINB_PA_ptaE)
 cat("The AUC for the Presence/Absence portion of the model is", auc_PA_ptaE)
 
 ```
+
+
+
+# Range 17 (PTA West)
+
+The logistic regression analysis revealed the following variables to be predictive of fire occurrence in PTA West:
+  1. KBDI
+  2. BI
+  3. RnDr
+  
+I experimented with various combinations of these variables in each of the two model components (Fire Presence & Fire Intensity). I was not able to run all possible combinations because some models did not converge. Instead, I ran the models in coherent chunks to test whether KBDI would be important for Occurrence, Intensity, or both for PTA West. The reasoning behind this strategy was that KBDI had emerged as predictive of Occurrence in the logistic model for PTA West, but the results from PTA East showed it to be important for Intensity only. 
+
+This first set compares models with KBDI in the 'Intensity' component against models *without* KBDI in the Intensity component.    
+On a separate note, I also removed RnDr entirely from one of the models, as that variable came out as less important than the others in the original logistic regression analysis. For the sake of simplicity, I wanted to see whether RnDr would explain enough "variance" to be worth including.  
+
+I've written out the first suite of models I ran below. 
+The notation reads as {*Predictors of Intensity* | *Predictors of Occurrence*}.  
+
+  * KBDI + BI + RnDr | KBDI + BI + RnDr (global model)
+  
+  *remove RnDr*
+  
+  * KBDI + BI | KBDI + BI + RnDr (remove RnDr from Intensity only)
+  * KBDI + BI + RnDr | KBDI (remove RnDr from Occurrence only)
+  * KBDI + BI | KBDI + BI (remove RnDr altogether; KBDI + BI on both sides)
+  
+  * BI | KBDI + BI (BI alone explains Intensity)
+  * KBDI + BI | KBDI (KBDI alone explains occurrence)
+  
+  
+  *put RnDr back in*
+  
+  * KBDI + BI + RnDr | KBDI (KBDI alone explains occurrence)
+  
+  *remove KBDI from Intensity*
+  
+  * BI + RnDR | KBDI + BI + RnDr (all three explain occurrence)
+  * BI | KBDI + BI + RnDr (BI alone explains Intensity)
+  * BI + RnDr | KBDI + BI (RnDr does NOT explain occurrence)
+  * BI + RnDr | KBDI (KBDI alone explains occurrence and does NOT explain Intensity)
+
+```{r}
+
+options(na.action = "na.omit") # na.fail is required for dredging, which may explain the lack of convergence
+
+
+# Model list 
+
+model_list1 <- list(
+  "globalModel" = globalModel, 
+  
+  # Remove RnDr 
+  
+  "KBDIBI_all" = KBDIBI_all, # remove RnDr from Intensity only
+  "NoRnDr" = NoRnDr, # Remove RnDr from both sides
+  "BI_KBDIBI" = BI_KBDIBI, # BI alone explains Intensity
+  "KBDIBI_KBDI" = KBDIBI_KBDI, # KBDI alone explains Occurrence
+  
+  # Put RnDr back in model
+  
+  "all_KBDI" = all_KBDI, # KBDI alone explains Occurence
+  
+  # Remove KBDI from Intensity
+  
+  "BIRnDr_all" = BIRnDr_all, # All three explain occurrence
+  "BI_all" = BI_all, # BI alone explains Intensity
+  "BIRnDr_KBDIBI" = BIRnDr_KBDIBI, # RnDr does NOT explain Occurrence
+  "BIRnDr_KBDI" = BIRnDr_KBDI # KBDI alone explains occurrence but does NOT explain Intensity
+)
+
+aicc_values <- sapply(model_list1, function(x) {
+  AICc(x)
+})
+
+# Create comparison table
+
+model_comparison1 <- data.frame(
+  Model = names(model_list1),
+  AICc = aicc_values,
+  Delta_AICc = aicc_values - min(aicc_values)
+)
+
+# Sort by AICc
+
+model_comparison1 <- model_comparison[order(model_comparison$AICc),]
+
+# Print results
+
+knitr::kable(model_comparison1,
+             caption = "AICc jump when KBDI is removed from Intensity",
+             digits = 2) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+
+```
+
+Important takeaways from this first run:
+  1. KBDI is essential to include in the Intensity component (note the jump in Delta AICc when it's removed)
+  2. RnDr must be included
+  3. KBDI alone is not sufficient to predict Occurrence
+  
+  
+I'm going to add just a few more models to explore Occurrence, and then compare those to the global model.  
+  
+```{r}
+
+
+
+
+```
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
