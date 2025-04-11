@@ -8,7 +8,8 @@
   # 3. RnDr
 
 
-# KBDI must be in the PA component
+# KBDI must be in the Count component
+# It is better without RnDr in the Count component
 
 
 library(tidyverse)
@@ -32,9 +33,24 @@ globalModel <- zeroinfl(
   dist = "negbin"
 )
 
-options(na.action = "na.omit")
+options(na.action = "na.fail")
 
 summary(globalModel)
+
+
+
+
+
+model_list2 <- list(
+  "globalModel" = globalModel,
+  "globalModel_noRnDr" = globalModel_noRnDr,
+  "PA_noKBDI" = PA_noKBDI,
+  "PA_noBI" = PA_noBI,
+  "PA_all" = CKBDI_BI_PAall,
+  "C_RnDr" = C_RnDr
+)
+
+
 
 ## Dredging isn't working bc model is not converging
 
@@ -57,18 +73,15 @@ summary(globalModel)
 
 # PA = KBDI + BI; Count = AllVars
 
-CKBDI_BI_PAall <- zeroinfl(
-  Count ~ KBDI + BI + RnDr | KBDI + BI,
-  data = r17,
-  dist = "negbin"
-)
 
-summary(CKBDI_BI_PAall)
+
+
+
 
 # PA = KBDI; Count = BI + RnDr
 
 CBI_RnDr_PA_KBDI <- zeroinfl(
-  Count ~ BI + RnDr | KBDI,
+  Count ~ BI + RnDr + KBDI | KBDI,
   data = r17,
   dist = "negbin"
 )
@@ -108,9 +121,9 @@ CBI_PA_allVars <- zeroinfl(
 
 summary(CBI_PA_allVars)
 
-# Count = BI; PA = KBDI + BI
+# Similar to global model but removed RnDr from 'Occurrence'
 
-NoRnDr <- zeroinfl(
+PA_NoRnDr <- zeroinfl(
   Count ~ BI | KBDI + BI,
   data = r17,
   dist = "negbin"
@@ -132,14 +145,70 @@ model_list <- list(
   
 )
 
+##################################################################################
+
+# Try again with KBDI in the Count part
+
+CKBDI_BI_PAall <- zeroinfl(
+  Count ~ KBDI + BI | KBDI + BI + RnDr,
+  data = r17,
+  dist = "negbin"
+)
+ 
+
+globalModel_noRnDr <- zeroinfl(
+  Count ~ KBDI + BI | KBDI + BI,
+  data = r17,
+  dist = "negbin"
+)
+
+PA_noBI <- zeroinfl(
+  Count ~ KBDI + BI | KBDI,
+  data = r17,
+  dist = "negbin"
+)
+
+PA_noKBDI <- zeroinfl(
+  Count ~ KBDI + BI | BI,
+  data = r17,
+  dist = "negbin"
+)
+
+
+C_RnDr <- zeroinfl(Count ~ KBDI + BI + RnDr | KBDI + BI, 
+                   data = r17,
+                   dist = "negbin"
+)
+
+PA_RnDr <- zeroinfl(
+  Count ~ KBDI + BI | KBDI + BI + RnDr,
+  data = r17,
+  dist = "negbin"
+)
+
+summary(globalModel_noRnDr)
+
+## Compare Models
+
+model_list2 <- list(
+  "globalModel" = globalModel,
+  "globalModel_noRnDr" = globalModel_noRnDr,
+  "PA_allVars" = CKBDI_BI_PAall,
+  "PA_noKBDI" = PA_noKBDI,
+  "PA_noBI" = PA_noBI,
+  "PA_all" = CKBDI_BI_PAall,
+  "C_RnDr" = C_RnDr,
+  "PA_RnDr" = PA_RnDr
+)
+
 # Calculate AICc for each model
-aicc_values <- sapply(model_list, function(x) {
+aicc_values <- sapply(model_list2, function(x) {
   AICc(x)
 })
 
 # Create comparison table
 model_comparison <- data.frame(
-  Model = names(model_list),
+  Model = names(model_list2),
   AICc = aicc_values,
   Delta_AICc = aicc_values - min(aicc_values)
 )

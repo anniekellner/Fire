@@ -401,7 +401,7 @@ zinb_temp_KBDI  <- zeroinfl(
   dist = "negbin"  # Negative binomial distribution
 ) 
 
-summary(zinb_model)
+summary(zinb_temp_KBDI)
 
 ```
 
