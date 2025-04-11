@@ -347,19 +347,155 @@ Important takeaways from this first run:
   2. RnDr must be included
   3. KBDI alone is not sufficient to predict Occurrence
   
+
+For PTA East, I was able to hone in on the best model by examining the coefficients (and their significance) in the global model (it was easier because there were only two significant variables). 
+
+If I did the same for PTA West, that model would be KBDI + BI + RnDr | KBDI + BI. Let's see if that combination outcompetes the global model. 
   
-I'm going to add just a few more models to explore Occurrence, and then compare those to the global model.  
+```{r}
+
+all_KBDIBI <- zeroinfl(
+  Count ~ KBDI + BI + RnDr | KBDI + BI,
+  data = r17,
+  dist = "negbin"
+)
+
+model_list2 <- list(all_KBDIBI, globalModel)
+
+# Calculate AICc for each model
+
+aicc_values <- sapply(model_list2, function(x) {
+  AICc(x)
+})
+
+aicc_values
+
+```
   
+Well look at that. It worked. I think it's pretty safe to say the best model is {KBDI + BI + RnDr | KBDI + BI}
+
+I can try to play around with the Occurrence, and/or do an AUC analysis if it's of interest. 
+
+Here are the coefficients:
+
+```{r best-model-Range17} 
+
+summary(all_KBDIBI)
+
+```  
+
+I will make you a table for each location with the Dates, explanatory variables, Presence, Count, Acres Burned, and Fire Probability. 
+
+
+##  KMA
+
+Running all possible combinations of the two candidate variables, F100 and FM1.
+
 ```{r}
 
 
 
 
 ```
-  
 
 
-  
+
+
+Global Model is F100 + FM1 | F100 + FM1
+
+```{r}
+
+
+options(na.action = "na.omit")
+
+
+
+globalModel <- zeroinfl(
+  Count ~ F100 + FM1 | F100 + FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+F100 <- zeroinfl(
+  Count ~ F100 | F100,
+  data = kma, dist = "negbin"
+)
+
+F100_FM1 <- zeroinfl(
+  Count ~ F100 | FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+F100_F100FM1 <- zeroinfl(
+  Count ~ F100 | F100 + FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+F100FM1_F100 <- zeroinfl(
+  Count ~ F100 + FM1 | F100,
+  data = kma,
+  dist = "negbin"
+)
+
+F100FM1_FM1 <- zeroinfl(
+  Count ~ F100 + FM1 | FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+FM1 <- zeroinfl(
+  Count ~ FM1 | FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+FM1_F100 <- zeroinfl(
+  Count ~ FM1 | F100, 
+  data = kma, 
+  dist = "negbin"
+)
+
+FM1_F100FM1 <- zeroinfl(
+  Count ~ FM1 | F100 + FM1,
+  data = kma,
+  dist = "negbin"
+)
+
+model_list_KMA <- list(
+  "globalModel" = globalModel,
+  "F100" = F100,
+  "F100_FM1" = F100_FM1,
+  "F100_F100FM1" = F100_F100FM1,
+  "F100FM1_FM1" = F100FM1_FM1,
+  "F100FM1_F100" = F100FM1_F100,
+  "FM1_F100FM1" = FM1_F100FM1,
+  "FM1_F100" = FM1_F100,
+  "FM1" = FM1)
+
+
+# Compare using AICc
+
+model_comparison_kma <- data.frame(
+  Model = names(model_list_KMA),
+  AICc = aicc_values,
+  Delta_AICc = aicc_values - min(aicc_values)
+)
+
+model_comparison_kma <- model_comparison_kma[order(model_comparison_kma$AICc),]
+
+# Print results
+
+knitr::kable(model_comparison_kma,
+             caption = "AICc jump when KBDI is removed from Intensity",
+             digits = 2) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE)
+```
+The top model for KMA is F100 + FM1 | FM1
+
+In all the top models (AICc <2), FM1 is the best predictor of Occurrence. If you need to use linear regression, using FM1 only will give you fire presence/absence. 
 
 
 
