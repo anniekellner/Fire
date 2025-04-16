@@ -58,21 +58,43 @@ kma_ZINB <- zeroinfl(
 
 coef_kma <- coef(kma_ZINB)
 
-# Calculate mu 
 
-ptaE <- ptaE %>%
+## PTA EAST
+
+# Get coefficients 
+
+ptaE_count_intercept <- ptaE_ZINB$coefficients$count[1]
+ptaE_count_coef <- ptaE_ZINB$coefficients$count[2]
+
+ptaE_zero_intercept <- ptaE_ZINB$coefficients$zero[1]
+ptaE_zero_coef <- ptaE_ZINB$coefficients$zero[2]
+
+ptaE_r <- ptaE_ZINB$theta
+
+
+ptaE_withProbs <- ptaE %>%
   mutate(mu = exp(coef(ptaE_ZINB)["count_(Intercept)"] + 
-                                      coef(ptaE_ZINB)["count_KBDI"]*KBDI)) %>%
-  mutate(pi = exp(-(coef(ptaE_ZINB)["zero_(Intercept)"] + 
-                                               coef(ptaE_ZINB)["zero_Temp"] * Temp)))%>%
-  mutate(prob0 = ifelse(
-    Count == 0, pi + (1-pi)*((ptaE_r/(ptaE_r+mu))^ptaE_r), NA)) %>%
+                    coef(ptaE_ZINB)["count_KBDI"] * KBDI)) %>%
+  mutate(P = 1/(1 + exp(-(coef(ptaE_ZINB)["zero_(Intercept)"] + 
+                            coef(ptaE_ZINB)["zero_Temp"] *Temp)))) %>%
+  
+  mutate(prob_allZero = ifelse(
+    Count == 0, 
+    P + (1-P)*((ptaE_r/(ptaE_r+mu))^ptaE_r), 
+    NA
+  )) %>%
+  
+  mutate(prob_fire = 1 - prob_allZero) %>%
+  
   mutate(probCount = ifelse(
-    Count > 0, (1-pi)*(factorial(Count+ptaE_r-1)/(factorial(ptaE_r-1)*factorial(ptaE_r)))*
+    Count > 0, (1-P)*(factorial(Count+ptaE_r-1)/(factorial(ptaE_r-1)*factorial(Count)))*
       ((ptaE_r/(ptaE_r+mu))^ptaE_r)*((mu/(ptaE_r+mu))^Count), NA))
+
+write_csv(ptaE_withProbs, file = "C:/Users/akellner/OneDrive - Colostate/Documents/Fire/Data/ptaE_with_mu_pi_probs.csv")
   
 
+head(ptaE_withProbs)
 
-
+ptaE_count_intercept + ptaE_count_coef*ptaE$KBDI[1]
 
 
