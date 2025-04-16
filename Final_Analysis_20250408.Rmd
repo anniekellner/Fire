@@ -360,6 +360,8 @@ all_KBDIBI <- zeroinfl(
   dist = "negbin"
 )
 
+summary(all_KBDIBI)
+
 model_list2 <- list(all_KBDIBI, globalModel)
 
 # Calculate AICc for each model
@@ -495,8 +497,13 @@ knitr::kable(model_comparison_kma,
 ```
 The top model for KMA is F100 + FM1 | FM1
 
-In all the top models (AICc <2), FM1 is the best predictor of Occurrence. If you need to use linear regression, using FM1 only will give you fire presence/absence. 
+In all the top models (AICc <2), FM1 is the best predictor of Occurrence. If you need to use linear regression, using FM1 only will suffice for fire presence/absence. 
 
+```{r DF-with-mu-pi-probs}
+
+ptaE$mu <- 
+
+```
 
 
 
